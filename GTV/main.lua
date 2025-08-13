@@ -10,10 +10,6 @@ local util = require("StormAtronach.GTV.util")
 dofile("StormAtronach.GTV.mcm")
 
 -- VARIABLES
-local data = {}
-local factionList = {}
-
--- GetContent -Path "C:\Modlists\Morrowind75\root\MWSE.log" -Wait
 
 -- Item pickup
 ---@param e activateEventData
@@ -40,13 +36,8 @@ local function onItemPickup(e)
 	aux.value 	= tes3.getValue({item = item}) or 0
 	util.updateData(aux)
 	local timeStamp = tes3.getSimulationTimestamp()
-	
 
-	
-
-	
 	-- We update the current crime time and space data
-
 	local currentCell 				= tes3.dataHandler.currentCell.id
 	local currentCrime 				= data.currentCrime
 	currentCrime.cells[currentCell] = timeStamp
@@ -86,7 +77,7 @@ end
 --- @param e loadedEventData
 local function loadedCallback(e)
 -- Housekeeping to be done while the mod loads:
-	data = util.getData() -- Update or create the playerData container
+	util.getData() -- Update or create the playerData container
 	util.updateFactionList() -- Update or create the faction list
 end
 

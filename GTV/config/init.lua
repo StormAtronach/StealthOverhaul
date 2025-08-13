@@ -5,6 +5,7 @@ local default = {
 	enabled = true,
 	logLevel = mwse.logLevel.trace,
 	detectionAngle = 80, -- degrees
+	detectionCooldwon = 5, -- seconds
 	---@type mwseKeyMouseCombo
 	someKey = {
 		keyCode = tes3.scanCode.p,
