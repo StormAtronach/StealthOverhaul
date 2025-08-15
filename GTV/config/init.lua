@@ -5,7 +5,11 @@ local default = {
 	enabled = true,
 	logLevel = mwse.logLevel.trace,
 	detectionAngle = 80, -- degrees
-	detectionCooldwon = 5, -- seconds
+	detectionCooldwon = 5, -- seconds, cooldown for stolen ITEMs check
+	wanderRangeInterior = 500,
+	wanderRangeExterior = 2000,
+	minTravelTime 		= 1, -- seconds, minimum time that the NPC will travel to the destination while investigating
+	maxTravelTime		= 15, -- seconds, maximum time that the NPC will travel to the destination
 	---@type mwseKeyMouseCombo
 	someKey = {
 		keyCode = tes3.scanCode.p,

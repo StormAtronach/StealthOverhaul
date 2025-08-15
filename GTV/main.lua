@@ -14,6 +14,7 @@ dofile("StormAtronach.GTV.mcm")
 -- Item pickup
 ---@param e activateEventData
 local function onItemPickup(e)
+	
 	-- Check if the mod is enabled
     if not (config.enabled and interop.GTVenabled) then return end
 	-- Check if the activator is the player
@@ -26,7 +27,7 @@ local function onItemPickup(e)
 	local owner = tes3.getOwner({reference = e.target})
 	if not (owner and owner.id) then log:trace("Item has no owner") return end
 
-
+	local data = util.getData()
 	-- We update the crime in the data:
 	local aux 		= {} -- my dear auxiliary, can hold everything
 	aux.ownerID = owner.id:lower()
