@@ -143,21 +143,23 @@ function util.checkInventoryForStolenItems()
             for _, owner in pairs(item.stolenList) do
                 local id = owner.id:lower()
                 if factionList[id] then
-                    auxData.factions[id] = auxData.factions[id] or { items = {}, value = 0 }
+                    auxData.factions[id] = auxData.factions[id] or { items = {}, value = 0, size = 0 }
                     if not  auxData.factions[id].items[item.id] then
                             auxData.factions[id].items[item.id] = {value = value, size = size, count = count}
                     else
                             auxData.factions[id].items[item.id].count = (auxData.factions[id].items[item.id].count or 0) + count
                     end
                     auxData.factions[id].value  = (auxData.factions[id].value or 0) + value*count
+                    auxData.factions[id].size   = (auxData.factions[id].size  or 0) +  size*count
                 else
-                    auxData.npcs[id] = auxData.npcs[id] or { items = {}, value = 0 }
+                    auxData.npcs[id] = auxData.npcs[id] or { items = {}, value = 0, size = 0}
                     if not  auxData.npcs[id].items[item.id] then
                             auxData.npcs[id].items[item.id] = {value = value, size = size, count = count}
                     else
                             auxData.npcs[id].items[item.id].count = (auxData.npcs[id].items[item.id].count or 0) + count
                     end
                     auxData.npcs[id].value      = (auxData.npcs[id].value     or 0) + value*count
+                    auxData.npcs[id].size       = (auxData.npcs[id].size      or 0) +  size*count
                 end
             end
         end
@@ -200,7 +202,7 @@ function util.removeOwnership(items)
     end
 end
 
-function util.gotCaught(npcID)
+function util.gotCaughtOwner(npcID)
     util.updateCurrentCrime() -- Ensure current crime is updated
     local data = util.getData()
     local npcRef = tes3.getReference(npcID) ---@cast npcRef tes3reference

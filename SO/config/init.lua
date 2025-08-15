@@ -9,6 +9,8 @@ local default = {
 	dispositionDropOnDiscovery = 20,
 	wanderRangeInterior = 500,
 	wanderRangeExterior = 2000,
+	guardCooldownTime = 5,
+	ownerCooldownTime = 5,
 	-- Sneak skill multipliers
 	sneakSkillMult = 100,
 	bootMultiplier = 10,
@@ -21,13 +23,7 @@ local default = {
 	sneakDifficulty = 50,
 	minTravelTime 		= 1, -- seconds, minimum time that the NPC will travel to the destination while investigating
 	maxTravelTime		= 15, -- seconds, maximum time that the NPC will travel to the destination
-	---@type mwseKeyMouseCombo
-	someKey = {
-		keyCode = tes3.scanCode.p,
-		isShiftDown = false,
-		isAltDown = true,
-		isControlDown = false,
-	},
+
 }
 
 ---@class template.config : template.defaultConfig
