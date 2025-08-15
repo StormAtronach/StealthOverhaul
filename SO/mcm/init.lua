@@ -1,5 +1,4 @@
-local config = require("StormAtronach.GTV.config")
-local log = mwse.Logger.new()
+local config = require("StormAtronach.SO.config")
 
 local authors = {
 	{
@@ -32,7 +31,7 @@ end
 
 local function registerModConfig()
 	local template = mwse.mcm.createTemplate({
-		name = "Grand Theft Vvardenfell",
+		name = "Stealth Overhaul",
 		--headerImagePath = "MWSE/mods/template/mcm/Header.tga",
 		config = config,
 		defaultConfig = config.default,

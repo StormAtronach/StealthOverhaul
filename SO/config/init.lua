@@ -1,4 +1,4 @@
-local fileName = "StormAtronach.GTV"
+local fileName = "StormAtronach.SO"
 
 ---@class template.defaultConfig
 local default = {
@@ -6,8 +6,19 @@ local default = {
 	logLevel = mwse.logLevel.trace,
 	detectionAngle = 80, -- degrees
 	detectionCooldwon = 5, -- seconds, cooldown for stolen ITEMs check
+	dispositionDropOnDiscovery = 20,
 	wanderRangeInterior = 500,
 	wanderRangeExterior = 2000,
+	-- Sneak skill multipliers
+	sneakSkillMult = 100,
+	bootMultiplier = 10,
+	sneakDistanceBase = 60,
+	sneakDistanceMultiplier = 500,
+	invisibilityBonus = 30,
+	npcSneakBonus = 20,
+	viewMultiplier = 3,
+	hearingMultiplier = 1,
+	sneakDifficulty = 50,
 	minTravelTime 		= 1, -- seconds, minimum time that the NPC will travel to the destination while investigating
 	maxTravelTime		= 15, -- seconds, maximum time that the NPC will travel to the destination
 	---@type mwseKeyMouseCombo

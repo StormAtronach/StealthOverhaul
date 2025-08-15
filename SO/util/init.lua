@@ -1,4 +1,4 @@
-local config = require("StormAtronach.GTV.config")
+local config = require("SO.config.init")
 local log = mwse.Logger.new({
 	name = "Grand Theft Vvardenfell",
 	level = config.logLevel,
@@ -25,6 +25,7 @@ end
 function util.resetData()
     tes3.player.data.SA_GTV = {}
     local data = tes3.player.data.SA_GTV
+    --- Grudge mechanic. Not yet implemented
     data.npcs                   = {}
         data.npcs.items             = {}
         data.npcs.value             = 0
@@ -33,6 +34,7 @@ function util.resetData()
         data.factions.items         = {}
         data.factions.value         = 0
         data.factions.lastTime      = 0
+    --- Current crime mechanic. Currently implemented
     data.currentCrime           = {}
         data.currentCrime.value     = 0
         data.currentCrime.size      = 0
@@ -80,7 +82,7 @@ end
 ---@field count number|nil
 ---@field value number|nil
 
--- Update thieving victims long term memory
+-- Update thieving victims long term memory -- Currently Not used
 ---@param p updateDataParams
 function util.updateData(p)
     local ownerID = p.ownerID -- The ownner id
@@ -133,12 +135,10 @@ function util.checkInventoryForStolenItems()
         local item  = stack.object
         if  tes3.getItemIsStolen({item = item}) then
             local size      = util.getMaxSize(item) or 0
-            --local baseObject= tes3.getObject(item.id)
             local value     = tes3.getValue({item = item}) or 0
             local count     = stack.count or 1
             auxData.size    = auxData.size  + size*count
             auxData.value   = auxData.value + value*count
-
 
             for _, owner in pairs(item.stolenList) do
                 local id = owner.id:lower()
@@ -164,7 +164,7 @@ function util.checkInventoryForStolenItems()
     end
     return auxData
 end
-
+--- Updates the current crime data in the player data
 function util.updateCurrentCrime()
     local auxData = util.checkInventoryForStolenItems()
     local data = util.getData()
@@ -175,12 +175,35 @@ function util.updateCurrentCrime()
     data.currentCrime.factions  = {}
     data.currentCrime.factions  = table.deepcopy(auxData.factions)
 end
-     
+
+---Give items back to the owner
+---@param npcRef tes3reference
+---@param items any
+function util.giveItemsBack(npcRef,items)
+    for itemID, v in pairs(items) do
+        tes3.removeItem({
+            reference = tes3.player,
+            item = itemID,
+            count = v.count or 1,
+        })
+        tes3.addItem({
+            reference = npcRef,
+            item = itemID,
+            count = v.count or 1,
+        })
+    end
+end
+
+function util.removeOwnership(items)
+    for itemID, v in pairs(items) do
+        tes3.setItemIsStolen({item = itemID, stolen = false})
+    end
+end
 
 function util.gotCaught(npcID)
     util.updateCurrentCrime() -- Ensure current crime is updated
     local data = util.getData()
-    local npcRef = tes3.getReference(npcID)
+    local npcRef = tes3.getReference(npcID) ---@cast npcRef tes3reference
 
     -- Obsesively nil checking everything to avoid crashes:
     if not npcRef or not npcRef.object or not npcRef.object.name then
@@ -193,28 +216,37 @@ function util.gotCaught(npcID)
         log:debug("No data for NPC %s", npcID)
         return
     end
+    local bribeValue = math.round(npcItems.value * (1 + 50/tes3.mobilePlayer.mercantile.current),0)
+
+    local npcName = npcRef.object.name
 
     tes3.messageBox({message = "HEY! That's not yours, N'wah!",
-    buttons = {"Give items back", "The best witness is a dead witness!!"},
+    buttons = {"Give items back", string.format("How about I offer you a good sum for these items? (%s Gold)",bribeValue),"The best witness is a dead witness!!"},
         showInDialog = false,
         callback = function (e)
             if e.button == 0 then
                 -- Player chose to give items back
-                for itemID, v in pairs(npcItems.items) do
-                    tes3.removeItem({
-                        reference = tes3.player,
-                        item = itemID,
-                        count = v.count or 1,
-                    })
-                    tes3.addItem({
-                        reference = npcRef,
-                        item = itemID,
-                        count = v.count or 1,
-                    })
-                end
+                util.giveItemsBack(npcRef,npcItems.items)
                 tes3.updateInventoryGUI({reference = tes3.player}) -- Update the inventory GUI to reflect changes
                 util.updateCurrentCrime() -- Update the current crime after giving items back
-                tes3.messageBox("You returned the stolen items to %s.", npcID)
+                tes3.messageBox("You returned the stolen items to %s. They seem displeased", npcName)
+                npcRef.object.baseDisposition = math.max(npcRef.object.baseDisposition - config.dispositionDropOnDiscovery, 0)
+            elseif e.button == 1 then
+                local playerGold = tes3.getPlayerGold()
+                if playerGold > bribeValue then
+                    tes3.payMerchant{merchant = npcRef.mobile, cost = bribeValue}
+                    tes3.playSound{reference = tes3.player, sound = "Item Gold Down"}
+                    util.removeOwnership(npcItems.items)
+                    util.updateCurrentCrime() -- Update the current crime
+                    tes3.messageBox("Wealth beyond measure, Outlander. Next time, choose a merchant.")
+                else
+                -- Not enough gold, player chose to give items back
+                util.giveItemsBack(npcRef,npcItems.items)
+                tes3.updateInventoryGUI({reference = tes3.player}) -- Update the inventory GUI to reflect changes
+                util.updateCurrentCrime() -- Update the current crime after giving items back
+                tes3.messageBox("You don't have enough gold and returned the stolen items to %s. They seem very displeased", npcName)
+                npcRef.object.baseDisposition = math.max(npcRef.object.baseDisposition - config.dispositionDropOnDiscovery*1.25, 0)
+                end
             else
                 -- Player chose to fight
                 tes3.messageBox("You chose to fight %s!", npcID)
@@ -224,10 +256,69 @@ function util.gotCaught(npcID)
                     victim = npcRef,
                     forceDetection = true,
                 })
+                if npcRef.mobile then npcRef.mobile:startCombat(tes3.mobilePlayer) end
             end
         end,})
 end
 
+
+util.createLineRed =  function(origin, destination, widget_name)
+    widget_name = widget_name or "raytest_debug_widget_red"
+    local root = tes3.worldController.vfxManager.worldVFXRoot
+    local line = root:getObjectByName(widget_name)
+
+    if line == nil then
+        line = tes3.loadMesh("mwse\\widgets.nif")  ---@cast line niTriShape
+            :getObjectByName("axisLines")
+            :getObjectByName("z")
+            :clone()
+        line.name = widget_name
+        root:attachChild(line, true)
+    end
+
+    line.data.vertices[1] = origin
+    line.data.vertices[2] = destination
+    -- color of start position
+    line.data.colors[1] = niPackedColor.new(255, 0, 0)
+    -- color of end position
+    line.data.colors[2] = niPackedColor.new(255, 0, 0)
+    line.data:markAsChanged()
+    line.data:updateModelBound()
+
+    line:update()
+    line:updateEffects()
+    line:updateProperties()
+end
+
+util.createLineGreen = function(origin, destination, widget_name)
+    widget_name = widget_name or "raytest_debug_widget_green"
+    local root = tes3.worldController.vfxManager.worldVFXRoot
+   
+    local line = root:getObjectByName(widget_name) ---@cast line niTriShape
+
+    if line == nil then
+   
+        line = tes3.loadMesh("mwse\\widgets.nif") ---@cast line niTriShape
+            :getObjectByName("axisLines")
+            :getObjectByName("z")
+            :clone()
+        line.name = widget_name
+        root:attachChild(line, true)
+    end
+
+    line.data.vertices[1] = origin
+    line.data.vertices[2] = destination
+    -- color of start position
+    line.data.colors[1] = niPackedColor.new(0, 255, 0)
+    -- color of end position
+    line.data.colors[2] = niPackedColor.new(0, 255, 0)
+    line.data:markAsChanged()
+    line.data:updateModelBound()
+
+    line:update()
+    line:updateEffects()
+    line:updateProperties()
+end
 
 return util
 
