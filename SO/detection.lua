@@ -14,6 +14,7 @@ local npcsTracking = {}
 ---@param e loadEventData
 local function onLoad(e)
 	npcsTracking = {} 		 -- clean up the npcsTracking table
+    staticsCooldown = {}
 end
 event.register(tes3.event.loaded,onLoad)
 
@@ -77,22 +78,19 @@ local function didTheyHearThat()
         local mobileActors = tes3.findActorsInProximity({reference = tes3.player, range = 2000})
         local data = util.getData()
         for _,actor in pairs(mobileActors) do
-            if actor == tes3.mobilePlayer then break end
+            if actor == tes3.mobilePlayer then goto continue end
             -- If the actor has been called in the last 10 seconds, ignore them
             if npcsTracking[actor.object.id] then
                 local cooldownCheck = tes3.getSimulationTimestamp(false) - npcsTracking[actor.object.id]
-                if cooldownCheck < 10 then return end
+                if cooldownCheck < 10 then goto continue end
             end
-			local actorName = actor.reference.object.name:lower()
+			local actorName = actor.reference and actor.reference.object.name:lower()
             -- Is it a hostile actor or has the player stolen from them?
             local fightCheck = actor.fight < 80
-            local check = data.currentCrime.npcs[actorName] and true or false
-            log:debug("Name: %s,Fight check: %s, Stolen Objects: %s",actor.reference.object.name, fightCheck, check)
-            if actor.fight < 80 then
-                if (not data.currentCrime.npcs[actorName]) then
-                    return
-                end
-            end 
+            local stolenCheck = data.currentCrime.npcs[actorName] and true or false
+            log:debug("Name: %s,Fight check: %s, Stolen Objects: %s",actor.reference.object.name, fightCheck, stolenCheck)
+            if fightCheck and (not stolenCheck) then goto continue end
+            
             log:debug("Actor detected, starting onHearingNoise for %s, actor name: %s",actor.object.id,actorName)
             local wasHeard = onHearingNoise(actor)
             log:debug("was heard? %s",wasHeard)
@@ -105,6 +103,7 @@ local function didTheyHearThat()
                 investigation.startTravel(actor.reference,tes3.player.position)
                 npcsTracking[actor.object.id] = tes3.getSimulationTimestamp(false)
             end
+            ::continue::
         end
 end
 
@@ -124,15 +123,36 @@ local footStepName = {
 
 local function onAddSound(e)
     if e.isVoiceover then return end
-    if e.reference ~= tes3.player or e.reference == nil then return end
+    if e.reference ~= tes3.player then return end
 
     local id = e.sound.id:lower()
     if footStepName[id] then
-        tes3.messageBox(e.sound.id:lower())
+        --tes3.messageBox(e.sound.id:lower())
         didTheyHearThat()
     end
 end
 event.register("addSound", onAddSound,{priority = 999999}) -- The footsteps from 1st person overhaul are at 1 million
+
+--While levitating
+local messagesOnCollision = {"BONK!", "OUCH", "AIEE", "KABONK", "WHUMP","SPLOINK","THWOK","KADONK"}
+--- @param e collisionEventData
+local function onCollision(e)
+    local target = e.target
+    if not target then return end
+    if tes3.mobilePlayer.levitate < 1 then return end
+
+    if target.object.objectType == tes3.objectType.static then
+        if staticsCooldown[e.target.id:lower()] then
+        local cooldownCheck = tes3.getSimulationTimestamp(false) - staticsCooldown[e.target.id:lower()] < 5
+        if cooldownCheck then return end
+        end
+
+        staticsCooldown[e.target.id:lower()] = tes3.getSimulationTimestamp(false)
+        tes3.messageBox(messagesOnCollision[math.random(1,#messagesOnCollision)])
+        didTheyHearThat()
+    end
+end
+event.register(tes3.event.collision, onCollision, { filter = ("PlayerSaveGame"):lower() })
 
 --- @param e detectSneakEventData
 local function onVisualContact(e)

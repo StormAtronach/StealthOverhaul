@@ -1,6 +1,6 @@
 local config = require("StormAtronach.SO.config")
 local interop = require("StormAtronach.SO.interop")
-local util = require("StormAtronach.SO.util.")
+local util = require("StormAtronach.SO.util")
 local investigation = require("StormAtronach.SO.investigation")
 
 local log = mwse.Logger.new({
@@ -68,7 +68,7 @@ local function detected(e)
 	end
 
 -- Owner detection stream
-	local ownerName = e.detector.object.name:lower()
+	local ownerName = e.detector.object.name:lower() or "none"
 	local isOwner   = data.currentCrime.npcs[ownerName] and true or false
 	local ownerCooldownActive = tes3.getSimulationTimestamp(false) - (npcCooldown[ownerName] or 0) < config.ownerCooldownTime
 	if isOwner and (not ownerCooldownActive) then

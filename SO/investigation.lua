@@ -61,6 +61,7 @@ local function returnToOriginalPosition(e)
     local data = e.timer.data
     if not data then log:debug("Payload for returnToOriginalPosition is missing") return end
     local npcRef = tes3.getReference(data.npcRef) or nil
+    if not npcRef then log:debug("Reference does not exist in Return To Original Position") return end
     tes3.setAITravel({reference = npcRef, destination = data.originalPosition, reset = true})
 end
 
@@ -105,8 +106,9 @@ local function checkDestination(e)
 
     -- Ok, for the actual check
     -- Last minute nil-checking
+    if not (npcRef and npcRef.mobile and npcRef.mobile.position) then log:debug("Nil checking failed before restarting the wander") return end
     local destination = data.destination or npcRef.mobile.position:copy()
-    local remainingDistance = npcRef.mobile.position:distance(destination)
+    local remainingDistance =  npcRef.mobile.position:distance(destination)
 
     -- Are we there yet?
     if remainingDistance <= 5 or AIWander then
