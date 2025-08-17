@@ -1,4 +1,4 @@
-local config = require("SO.config.init")
+local config = require("StormAtronach.SO.config")
 local log = mwse.Logger.new({
 	name = "Grand Theft Vvardenfell",
 	level = config.logLevel,
@@ -82,7 +82,7 @@ end
 ---@field count number|nil
 ---@field value number|nil
 
--- Update thieving victims long term memory -- Currently Not used
+-- Update thieving victims long term memory -- Currently not integrated into the gameplay loop
 ---@param p updateDataParams
 function util.updateData(p)
     local ownerID = p.ownerID -- The ownner id

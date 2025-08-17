@@ -1,5 +1,5 @@
 local interop = {}
 
-interop = require("StromAtronach.SO.interop")
+interop = require("StormAtronach.SO.interop")
 
 return interop

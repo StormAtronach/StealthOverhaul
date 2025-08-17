@@ -2,10 +2,10 @@ local fileName = "StormAtronach.SO"
 
 ---@class template.defaultConfig
 local default = {
-	enabled = true,
-	logLevel = mwse.logLevel.trace,
+	modEnabled = true,
+	logLevel = mwse.logLevel.error,
 	detectionAngle = 80, -- degrees
-	detectionCooldwon = 5, -- seconds, cooldown for stolen ITEMs check
+	detectionCooldown = 5, -- seconds, cooldown for stolen ITEMs check
 	dispositionDropOnDiscovery = 20,
 	wanderRangeInterior = 500,
 	wanderRangeExterior = 2000,
