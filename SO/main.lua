@@ -2,6 +2,8 @@ local config = require("StormAtronach.SO.config")
 local interop = require("StormAtronach.SO.interop")
 local util = require("StormAtronach.SO.util")
 local investigation = require("StormAtronach.SO.investigation")
+dofile("StormAtronach.SO.detection")
+dofile("StormAtronach.SO.sneakstrike")
 
 local log = mwse.Logger.new({
 	name = "Stealth Overhaul",
@@ -17,8 +19,8 @@ local npcCooldown = {}
 
 -- Housekeeping
 
-local function forceStealthCheck(e)
-		tes3.worldController.mobManager.processManager:detectPresence(tes3.mobilePlayer, true)
+local function forceStealthCheck()
+	tes3.worldController.mobManager.processManager:detectPresence(tes3.mobilePlayer, true)
 end
 
 ---@param e loadEventData
@@ -27,7 +29,9 @@ local function onLoad(e)
 	guardCooldown = 0		 -- Reset the guard cooldown
 	util.getData() 			 -- Update or create the playerData container
 	util.updateFactionList() -- Update or create the faction list
-	timer.start({type = timer.simulate, callback = "forceStealthCheck", duration = 2, iterations = -1})
+	timer.start({type = timer.simulate, 
+	callback = function () forceStealthCheck() end,
+	duration = 2, iterations = -1})
 end
 event.register(tes3.event.loaded,onLoad)
 
@@ -80,7 +84,7 @@ local function detected(e)
 
 		-- Basic score for the owner taking into account value and size of the loot
 		local ownerStuff 	= data.currentCrime.npcs[ownerName]
-		local npcScore 		= 0.75*(e.detector.sneak.current + e.detector.security + e.detector.mercantile)
+		local npcScore 		= 0.75*(e.detector.sneak.current + e.detector.security.current + e.detector.mercantile.current)
 		local lootScore 	= ownerStuff.size + 0.1*ownerStuff.value
 		local detectionChance = math.clamp(math.round(100*(lootScore + npcScore)/(playerScore), 0),0,100)
 		local check = detectionChance >= math.random(5,95) -- Easter egg, let's see if anyone reads the code. this would be nice for perks, though

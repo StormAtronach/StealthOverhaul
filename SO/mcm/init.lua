@@ -65,7 +65,6 @@ local function registerModConfig()
         step = 1,
         configKey = "detectionAngle",
         defaultSetting = config.default.detectionAngle,
-        postCreate = center,
     })
 
     page:createSlider({
@@ -238,10 +237,6 @@ local function registerModConfig()
         defaultSetting = config.default.maxTravelTime,
     })
 
-
-	page:createLogLevelOptions({
-		configKey = "logLevel",
-	})
 end
 
 event.register(tes3.event.modConfigReady, registerModConfig)
