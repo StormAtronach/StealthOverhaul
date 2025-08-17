@@ -50,7 +50,6 @@ local function registerModConfig()
         label = "Enable Mod",
         description = "Enable or disable Stealth Overhaul.",
         configKey = "modEnabled",
-        defaultSetting = config.default.modEnabled,
     })
 
     page:createLogLevelOptions({
@@ -59,12 +58,11 @@ local function registerModConfig()
 
     page:createSlider({
         label = "Detection Angle",
-        description = "The angle at which the player can be detected by NPCs.",
+        description = "The angle at which the player can be detected by NPCs. 180 means they have perfect 360 vision.",
         min = 0,
         max = 180,
         step = 1,
         configKey = "detectionAngle",
-        defaultSetting = config.default.detectionAngle,
     })
 
     page:createSlider({
@@ -74,7 +72,6 @@ local function registerModConfig()
         max = 30,
         step = 1,
         configKey = "detectionCooldown",
-        defaultSetting = config.default.detectionCooldown,
     })
 
     page:createSlider({
@@ -84,7 +81,6 @@ local function registerModConfig()
         max = 100,
         step = 1,
         configKey = "dispositionDropOnDiscovery",
-        defaultSetting = config.default.dispositionDropOnDiscovery,
     })
 
     page:createSlider({
@@ -94,7 +90,6 @@ local function registerModConfig()
         max = 2000,
         step = 50,
         configKey = "wanderRangeInterior",
-        defaultSetting = config.default.wanderRangeInterior,
     })
 
     page:createSlider({
@@ -104,7 +99,6 @@ local function registerModConfig()
         max = 5000,
         step = 100,
         configKey = "wanderRangeExterior",
-        defaultSetting = config.default.wanderRangeExterior,
     })
 
     page:createSlider({
@@ -114,7 +108,6 @@ local function registerModConfig()
         max = 30,
         step = 1,
         configKey = "guardCooldownTime",
-        defaultSetting = config.default.guardCooldownTime,
     })
 
     page:createSlider({
@@ -124,7 +117,6 @@ local function registerModConfig()
         max = 30,
         step = 1,
         configKey = "ownerCooldownTime",
-        defaultSetting = config.default.ownerCooldownTime,
     })
 
     page:createSlider({
@@ -134,7 +126,6 @@ local function registerModConfig()
         max = 200,
         step = 5,
         configKey = "sneakSkillMult",
-        defaultSetting = config.default.sneakSkillMult,
     })
 
     page:createSlider({
@@ -144,7 +135,6 @@ local function registerModConfig()
         max = 50,
         step = 1,
         configKey = "bootMultiplier",
-        defaultSetting = config.default.bootMultiplier,
     })
 
     page:createSlider({
@@ -154,7 +144,6 @@ local function registerModConfig()
         max = 200,
         step = 1,
         configKey = "sneakDistanceBase",
-        defaultSetting = config.default.sneakDistanceBase,
     })
 
     page:createSlider({
@@ -164,7 +153,6 @@ local function registerModConfig()
         max = 2000,
         step = 50,
         configKey = "sneakDistanceMultiplier",
-        defaultSetting = config.default.sneakDistanceMultiplier,
     })
 
     page:createSlider({
@@ -174,7 +162,6 @@ local function registerModConfig()
         max = 100,
         step = 1,
         configKey = "invisibilityBonus",
-        defaultSetting = config.default.invisibilityBonus,
     })
 
     page:createSlider({
@@ -184,7 +171,6 @@ local function registerModConfig()
         max = 100,
         step = 1,
         configKey = "npcSneakBonus",
-        defaultSetting = config.default.npcSneakBonus,
     })
 
     page:createSlider({
@@ -194,7 +180,6 @@ local function registerModConfig()
         max = 10,
         step = 1,
         configKey = "viewMultiplier",
-        defaultSetting = config.default.viewMultiplier,
     })
 
     page:createSlider({
@@ -204,7 +189,6 @@ local function registerModConfig()
         max = 10,
         step = 1,
         configKey = "hearingMultiplier",
-        defaultSetting = config.default.hearingMultiplier,
     })
 
     page:createSlider({
@@ -214,7 +198,6 @@ local function registerModConfig()
         max = 200,
         step = 1,
         configKey = "sneakDifficulty",
-        defaultSetting = config.default.sneakDifficulty,
     })
 
     page:createSlider({
@@ -224,7 +207,6 @@ local function registerModConfig()
         max = 30,
         step = 1,
         configKey = "minTravelTime",
-        defaultSetting = config.default.minTravelTime,
     })
 
     page:createSlider({
@@ -234,7 +216,6 @@ local function registerModConfig()
         max = 60,
         step = 1,
         configKey = "maxTravelTime",
-        defaultSetting = config.default.maxTravelTime,
     })
 
 end

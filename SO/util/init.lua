@@ -41,7 +41,7 @@ function util.resetData()
         data.currentCrime.npcs      = {}
         data.currentCrime.factions  = {}
         data.currentCrime.cells     = {}
-    
+
     return data
 end
 
@@ -128,6 +128,7 @@ function util.checkInventoryForStolenItems()
             auxData.factions    = {}
             auxData.size        = 0
             auxData.value       = 0
+            auxData.items       = {}
 
     -- Scan the player's inventory for stolen items. Still have to figure out how to go through the ashfall containers.
     for _,  stack in pairs(tes3.player.object.inventory) do
@@ -139,7 +140,13 @@ function util.checkInventoryForStolenItems()
             local count     = stack.count or 1
             auxData.size    = auxData.size  + size*count
             auxData.value   = auxData.value + value*count
-
+            -- Adding items to the global list
+            if not auxData.items[item.id] then
+                auxData.items[item.id] = {value = value, size = size, count = count}
+            else
+                auxData.items[item.id].count = auxData.items[item.id].count + count
+            end
+            -- Adding items to the owners lists
             for _, owner in pairs(item.stolenList) do
                 local id = owner.id:lower()
                 if factionList[id] then
@@ -172,6 +179,8 @@ function util.updateCurrentCrime()
     local data = util.getData()
     data.currentCrime.value     = auxData.value
     data.currentCrime.size      = auxData.size
+    data.currentCrime.items     = {}
+    data.currentCrime.items     = table.deepcopy(auxData.items)
     data.currentCrime.npcs      = {}
     data.currentCrime.npcs      = table.deepcopy(auxData.npcs)
     data.currentCrime.factions  = {}
@@ -196,12 +205,26 @@ function util.giveItemsBack(npcRef,items)
     end
 end
 
+--- Remove items
+---@param items any
+function util.removeItems(items)
+    for itemID, v in pairs(items) do
+        tes3.removeItem({
+            reference = tes3.player,
+            item = itemID,
+            count = v.count or 1,
+        })
+    end
+end
+
 function util.removeOwnership(items)
     for itemID, v in pairs(items) do
         tes3.setItemIsStolen({item = itemID, stolen = false})
     end
 end
 
+--- Owner detection stream
+---@param npcID string
 function util.gotCaughtOwner(npcID)
     util.updateCurrentCrime() -- Ensure current crime is updated
     local data = util.getData()
@@ -222,8 +245,97 @@ function util.gotCaughtOwner(npcID)
 
     local npcName = npcRef.object.name
 
-    tes3.messageBox({message = "HEY! That's not yours, N'wah!",
-    buttons = {"Give items back", string.format("How about I offer you a good sum for these items? (%s Gold)",bribeValue),"The best witness is a dead witness!!"},
+    local caughtMessages = {
+        "HEY! That’s mine you’re carrying, thief!",
+        "N'wah! You reek of stolen wares!",
+        "Caught red-handed, Outlander — that’s not yours!",
+        "Pilferer! Did you think no one would notice?",
+        "Hand it over, scum. You’ve been found out.",
+        "Fetcher's fingers are quick… but not quick enough.",
+        "Do you think the Tribunal turns a blind eye, N’wah?",
+        "Even a guar could see you’re a thief.",
+        "You shame yourself, and the laws of Morrowind.",
+        "Wicked Outlander — those goods are not yours!",
+        "HEY! That's not yours, N'wah!",
+        }
+
+    tes3.messageBox({
+        message = caughtMessages[math.random(1,#caughtMessages)],
+        buttons = {"Give items back", string.format("I can pay handsomely (%s Gold)",bribeValue),"The best witness is a dead witness!!"},
+        showInDialog = false,
+        callback = function (e)
+            if e.button == 0 then
+                -- Player chose to give items back
+                util.giveItemsBack(npcRef,npcItems.items)
+                tes3.updateInventoryGUI({reference = tes3.player}) -- Update the inventory GUI to reflect changes
+                util.updateCurrentCrime() -- Update the current crime after giving items back
+                tes3.messageBox("You returned the stolen items to %s. They seem displeased", npcName)
+                npcRef.object.baseDisposition = math.max(npcRef.object.baseDisposition - config.dispositionDropOnDiscovery, 0)
+            elseif e.button == 1 then
+                local playerGold = tes3.getPlayerGold()
+                if playerGold > bribeValue then
+                    tes3.payMerchant{merchant = npcRef.mobile, cost = bribeValue}
+                    tes3.playSound{reference = tes3.player, sound = "Item Gold Down"}
+                    util.removeOwnership(npcItems.items)
+                    util.updateCurrentCrime() -- Update the current crime
+                    tes3.messageBox("Wealth beyond measure, Outlander. Next time, choose a merchant.")
+                else
+                -- Not enough gold, player chose to give items back
+                util.giveItemsBack(npcRef,npcItems.items)
+                tes3.updateInventoryGUI({reference = tes3.player}) -- Update the inventory GUI to reflect changes
+                util.updateCurrentCrime() -- Update the current crime after giving items back
+                tes3.messageBox("You don't have enough gold and returned the stolen items to %s. They seem very displeased", npcName)
+                npcRef.object.baseDisposition = math.max(npcRef.object.baseDisposition - config.dispositionDropOnDiscovery*1.25, 0)
+                end
+            else
+                -- Player chose to fight
+                tes3.messageBox("You chose to fight %s!", npcID)
+                tes3.triggerCrime({
+                    type = tes3.crimeType.theft,
+                    value = npcItems.value or 0,
+                    victim = npcRef,
+                    forceDetection = true,
+                })
+                if npcRef.mobile then npcRef.mobile:startCombat(tes3.mobilePlayer) end
+            end
+        end,})
+end
+
+--- Guard detection stream
+---@param npcID string
+function util.gotCaughtGuard(npcID)
+    util.updateCurrentCrime() -- Ensure current crime is updated
+    local data = util.getData()
+    local npcRef = tes3.getReference(npcID) ---@cast npcRef tes3reference
+
+    -- Obsesively nil checking everything to avoid crashes:
+    if not npcRef or not npcRef.object then
+        log:debug("Invalid NPC reference for %s", npcID)
+        return
+    end
+
+    local stolenItems = data.currentCrime.items
+    local bribeValue = math.round(npcItems.value * (1 + 50/tes3.mobilePlayer.mercantile.current),0)
+
+    local npcName = npcRef.object.name
+
+    local caughtMessages = {
+        "HEY! That’s mine you’re carrying, thief!",
+        "N'wah! You reek of stolen wares!",
+        "Caught red-handed, Outlander — that’s not yours!",
+        "Pilferer! Did you think no one would notice?",
+        "Hand it over, scum. You’ve been found out.",
+        "Fetcher's fingers are quick… but not quick enough.",
+        "Do you think the Tribunal turns a blind eye, N’wah?",
+        "Even a guar could see you’re a thief.",
+        "You shame yourself, and the laws of Morrowind.",
+        "Wicked Outlander — those goods are not yours!",
+        "HEY! That's not yours, N'wah!",
+        }
+
+    tes3.messageBox({
+        message = caughtMessages[math.random(1,#caughtMessages)],
+        buttons = {"Give items back", string.format("I can pay handsomely (%s Gold)",bribeValue),"The best witness is a dead witness!!"},
         showInDialog = false,
         callback = function (e)
             if e.button == 0 then
@@ -295,11 +407,11 @@ end
 util.createLineGreen = function(origin, destination, widget_name)
     widget_name = widget_name or "raytest_debug_widget_green"
     local root = tes3.worldController.vfxManager.worldVFXRoot
-   
+
     local line = root:getObjectByName(widget_name) ---@cast line niTriShape
 
     if line == nil then
-   
+
         line = tes3.loadMesh("mwse\\widgets.nif") ---@cast line niTriShape
             :getObjectByName("axisLines")
             :getObjectByName("z")

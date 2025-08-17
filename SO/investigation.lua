@@ -160,7 +160,7 @@ investigation.startTravel = function(npcRef, destination)
         tes3.setAIFollow({ reference = npcRefSafeRetrieved,target = tes3.player, destination = destination }) end)
 log:debug("Attempting to start travel. NPC %s, duration %s",npcRef.id,aux.duration)
 local message = string.format("Attempting to start travel. NPC %s, duration %s",npcRef.id,aux.duration)
-tes3.messageBox(message)
+-- tes3.messageBox(message) -- Debugging stuff
     timer.register("SA_SO_checkIfNPCArrived", checkDestination)
     timer.start({
         type        = timer.simulate,
