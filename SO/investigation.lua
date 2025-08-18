@@ -157,7 +157,7 @@ investigation.startTravel = function(npcRef, destination)
     timer.delayOneFrame(function() 
         if not npcRefSafe:valid() then log:debug("NPC ref handle got invalidated") return end
         local npcRefSafeRetrieved = npcRefSafe:getObject()
-        tes3.setAIFollow({ reference = npcRefSafeRetrieved,target = tes3.player, destination = destination }) end)
+        tes3.setAITravel({ reference = npcRefSafeRetrieved, destination = destination }) end)
 log:debug("Attempting to start travel. NPC %s, duration %s",npcRef.id,aux.duration)
 local message = string.format("Attempting to start travel. NPC %s, duration %s",npcRef.id,aux.duration)
 -- tes3.messageBox(message) -- Debugging stuff

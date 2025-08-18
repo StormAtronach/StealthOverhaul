@@ -246,14 +246,14 @@ function util.gotCaughtOwner(npcID)
     local npcName = npcRef.object.name
 
     local caughtMessages = {
-        "HEY! That’s mine you’re carrying, thief!",
+        "HEY! That's mine you're carrying, thief!",
         "N'wah! You reek of stolen wares!",
-        "Caught red-handed, Outlander — that’s not yours!",
+        "Caught red-handed, Outlander — that's not yours!",
         "Pilferer! Did you think no one would notice?",
-        "Hand it over, scum. You’ve been found out.",
+        "Hand it over, scum. You've been found out.",
         "Fetcher's fingers are quick… but not quick enough.",
-        "Do you think the Tribunal turns a blind eye, N’wah?",
-        "Even a guar could see you’re a thief.",
+        "Do you think the Tribunal turns a blind eye, N'wah?",
+        "Even a guar could see you're a thief.",
         "You shame yourself, and the laws of Morrowind.",
         "Wicked Outlander — those goods are not yours!",
         "HEY! That's not yours, N'wah!",
@@ -315,6 +315,7 @@ function util.gotCaughtGuard(npcID)
     end
 
     local stolenItems = data.currentCrime.items
+    local value       = data.currentCrime.value
 
     -- Is it an ordinator?
     local helmet = tes3.getEquippedItem({
@@ -332,20 +333,20 @@ function util.gotCaughtGuard(npcID)
     local caughtMessagesGuard = {
         "Sticky fingers, eh? Not on my watch.",
         "Caught you red-handed, rat.",
-        "You’re bold, but you’re not clever.",
+        "You're bold, but you're not clever.",
         "Thought you could slip that past us? Ha!",
         "A thief in Imperial lands? Not for long.",
-        "Looks like someone’s pockets are heavier than they should be.",
-        "You think the Legion doesn’t notice? Fool.",
+        "Looks like someone's pockets are heavier than they should be.",
+        "You think the Legion doesn't notice? Fool.",
         "Best hope the magistrate is in a forgiving mood, cutpurse.",
-        "We’ve got a lawbreaker here! Steel yourselves, men.",
-        "Hold it right there, thief! Those goods aren’t yours.",
-        "Caught with stolen property? You’ll regret this.",
+        "We've got a lawbreaker here! Steel yourselves, men.",
+        "Hold it right there, thief! Those goods aren't yours.",
+        "Caught with stolen property? You'll regret this.",
         "You stand accused of theft against the Empire.",
         "Thieving scum! You disgrace Imperial law.",
         "Think you can outwit the Empire? Fool.",
         "The law is clear, criminal. Those goods are forfeit.",
-        "Justice will be swift — the Emperor’s will is not mocked."
+        "Justice will be swift — the Emperor's will is not mocked."
         }
 
     local caughtMessagesOrdinator = {
@@ -357,18 +358,18 @@ function util.gotCaughtGuard(npcID)
         "You carry what is not yours. This is sacrilege.",
         "Your shame is written upon you. Confess, and face judgment.",
         "You dare sully the laws of Morrowind with such theft?",
-        "There is no hiding sin from Almalexia’s gaze, thief.",
-        "Repent, N’wah. The Ordinators pass judgment now.",
-        "The Tribunal’s justice is swift, and it is absolute.",
+        "There is no hiding sin from Almalexia's gaze, thief.",
+        "Repent, N'wah. The Ordinators pass judgment now.",
+        "The Tribunal's justice is swift, and it is absolute.",
         "You think to mock the Tribunal with petty theft? Blasphemer.",
         "Your crime blackens this holy land. We shall cleanse it.",
         "Sin clings to you like filth, outlander.",
-        "The Tribunal’s wrath descends on thieves and heretics alike.",
+        "The Tribunal's wrath descends on thieves and heretics alike.",
         "On your knees, criminal. Repent before the Three.",
         "Your fate is sealed. The Ordinators do not forgive.",
-        "Every stolen trinket is another nail in your coffin, n’wah.",
+        "Every stolen trinket is another nail in your coffin, n'wah.",
         "You are unworthy even to speak the names of the Three.",
-        "Your soul will find no mercy in Almalexia’s gaze.",
+        "Your soul will find no mercy in Almalexia's gaze.",
     }
     local caughtMessages = {}
     if isOrdinator then
@@ -384,7 +385,11 @@ function util.gotCaughtGuard(npcID)
         callback = function (e)
             if e.button == 0 then
                 -- Player chose to surrender. Start vanilla dialogue
-                npcRef.mobile:startDialogue()
+                tes3.triggerCrime({
+                    type = tes3.crimeType.theft,
+                    value = value or 0,
+                    forceDetection = true,
+                })
             elseif e.button == 1 then
                 local reputationTerm  = tes3.player.object.reputation
                 local speechcraftTerm = tes3.mobilePlayer.speechcraft.current
@@ -395,7 +400,11 @@ function util.gotCaughtGuard(npcID)
                     util.updateCurrentCrime() -- Update the current crime
                 else
                     tes3.messageBox("Why should I care?")
-                    npcRef.mobile:startDialogue()
+                    tes3.triggerCrime({
+                    type = tes3.crimeType.theft,
+                    value = value or 0,
+                    forceDetection = true,
+                })
                 end
             elseif e.button == 2 then
                 -- This one is tricky
@@ -407,8 +416,12 @@ function util.gotCaughtGuard(npcID)
                     util.removeOwnership(stolenItems)
                     util.updateCurrentCrime() -- Update the current crime
                 else
-                    tes3.messageBox("Caught red handed, thief!")
-                    npcRef.mobile:startDialogue()
+                    tes3.triggerCrime({
+                    type = tes3.crimeType.theft,
+                    value = value or 0,
+                    forceDetection = true,
+                })
+                tes3.messageBox("Caught red handed, thief!")
                 end
             elseif e.button == 3 then
                 local speechcraftTerm = tes3.mobilePlayer.speechcraft.current
@@ -419,8 +432,20 @@ function util.gotCaughtGuard(npcID)
                     util.removeOwnership(stolenItems)
                     util.updateCurrentCrime() -- Update the current crime
                 else
+                    tes3.triggerCrime({
+                    type = tes3.crimeType.theft,
+                    value = value or 0,
+                    forceDetection = true,
+                })
                     tes3.messageBox("Caught red handed, thief!")
-                    npcRef.mobile:startDialogue()
+                --[[ This code did not work as expected. Letting vanilla take over
+                local npcRefSH = tes3.makeSafeObjectHandle(npcRef)
+                timer.delayOneFrame(function() if npcRefSH:valid() then
+                    local npcRef2 = npcRefSH:getObject()
+                    npcRef2.mobile:startDialogue()
+                end end)
+                ]]
+
                 end
             else
                 npcRef.mobile:startDialogue()
