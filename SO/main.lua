@@ -53,7 +53,7 @@ local function detected(e)
 		local detectionChance = math.clamp(math.round(100*data.currentCrime.size / playerScore, 0),0,100)
 		local check = detectionChance >= math.random(5,95) -- Easter egg, let's see if anyone reads the code. this would be nice for perks, though
 		if check then
-			util.gotCaughtGuard()
+			util.gotCaughtGuard(e.detector.reference.id)
 		else
 			if detectionChance < 6 then
 				-- Nothing

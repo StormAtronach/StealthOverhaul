@@ -315,7 +315,6 @@ function util.gotCaughtGuard(npcID)
     end
 
     local stolenItems = data.currentCrime.items
-    local bribeValue = math.round(npcItems.value * (1 + 50/tes3.mobilePlayer.mercantile.current),0)
 
     -- Is it an ordinator?
     local helmet = tes3.getEquippedItem({
