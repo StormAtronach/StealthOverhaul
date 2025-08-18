@@ -309,7 +309,7 @@ function util.gotCaughtGuard(npcID)
     local npcRef = tes3.getReference(npcID) ---@cast npcRef tes3reference
 
     -- Obsesively nil checking everything to avoid crashes:
-    if not npcRef or not npcRef.object then
+    if (not npcRef) or (not npcRef.object) or not (npcRef.mobile) then
         log:debug("Invalid NPC reference for %s", npcID)
         return
     end
@@ -317,60 +317,114 @@ function util.gotCaughtGuard(npcID)
     local stolenItems = data.currentCrime.items
     local bribeValue = math.round(npcItems.value * (1 + 50/tes3.mobilePlayer.mercantile.current),0)
 
-    local npcName = npcRef.object.name
+    -- Is it an ordinator?
+    local helmet = tes3.getEquippedItem({
+        actor = npcRef.mobile,
+        slot = tes3.armorSlot.helmet,
+        objectType = tes3.objectType.armor
+    })
 
-    local caughtMessages = {
-        "HEY! That’s mine you’re carrying, thief!",
-        "N'wah! You reek of stolen wares!",
-        "Caught red-handed, Outlander — that’s not yours!",
-        "Pilferer! Did you think no one would notice?",
-        "Hand it over, scum. You’ve been found out.",
-        "Fetcher's fingers are quick… but not quick enough.",
-        "Do you think the Tribunal turns a blind eye, N’wah?",
-        "Even a guar could see you’re a thief.",
-        "You shame yourself, and the laws of Morrowind.",
-        "Wicked Outlander — those goods are not yours!",
-        "HEY! That's not yours, N'wah!",
+    local isOrdinator = false
+    if helmet and helmet.object and helmet.object.id then
+        isOrdinator = helmet.object.id == "indoril helmet"
+    end
+
+
+    local caughtMessagesGuard = {
+        "Sticky fingers, eh? Not on my watch.",
+        "Caught you red-handed, rat.",
+        "You’re bold, but you’re not clever.",
+        "Thought you could slip that past us? Ha!",
+        "A thief in Imperial lands? Not for long.",
+        "Looks like someone’s pockets are heavier than they should be.",
+        "You think the Legion doesn’t notice? Fool.",
+        "Best hope the magistrate is in a forgiving mood, cutpurse.",
+        "We’ve got a lawbreaker here! Steel yourselves, men.",
+        "Hold it right there, thief! Those goods aren’t yours.",
+        "Caught with stolen property? You’ll regret this.",
+        "You stand accused of theft against the Empire.",
+        "Thieving scum! You disgrace Imperial law.",
+        "Think you can outwit the Empire? Fool.",
+        "The law is clear, criminal. Those goods are forfeit.",
+        "Justice will be swift — the Emperor’s will is not mocked."
         }
+
+    local caughtMessagesOrdinator = {
+        "You profane this holy city with stolen goods. Surrender them, heretic.",
+        "By the grace of the Tribunal, your crime is laid bare.",
+        "Blasphemer. Even your breath reeks of thievery.",
+        "Do you think the eyes of the Ordinators are blind, Outlander?",
+        "The Tribunal sees all. And we are Their hands.",
+        "You carry what is not yours. This is sacrilege.",
+        "Your shame is written upon you. Confess, and face judgment.",
+        "You dare sully the laws of Morrowind with such theft?",
+        "There is no hiding sin from Almalexia’s gaze, thief.",
+        "Repent, N’wah. The Ordinators pass judgment now.",
+        "The Tribunal’s justice is swift, and it is absolute.",
+        "You think to mock the Tribunal with petty theft? Blasphemer.",
+        "Your crime blackens this holy land. We shall cleanse it.",
+        "Sin clings to you like filth, outlander.",
+        "The Tribunal’s wrath descends on thieves and heretics alike.",
+        "On your knees, criminal. Repent before the Three.",
+        "Your fate is sealed. The Ordinators do not forgive.",
+        "Every stolen trinket is another nail in your coffin, n’wah.",
+        "You are unworthy even to speak the names of the Three.",
+        "Your soul will find no mercy in Almalexia’s gaze.",
+    }
+    local caughtMessages = {}
+    if isOrdinator then
+        caughtMessages = caughtMessagesOrdinator
+    else
+        caughtMessages = caughtMessagesGuard
+    end
 
     tes3.messageBox({
         message = caughtMessages[math.random(1,#caughtMessages)],
-        buttons = {"Give items back", string.format("I can pay handsomely (%s Gold)",bribeValue),"The best witness is a dead witness!!"},
+        buttons = {"Surrender", "Do you know who I am?","Go ahead and search me","Surely we can overlook this"},
         showInDialog = false,
         callback = function (e)
             if e.button == 0 then
-                -- Player chose to give items back
-                util.giveItemsBack(npcRef,npcItems.items)
-                tes3.updateInventoryGUI({reference = tes3.player}) -- Update the inventory GUI to reflect changes
-                util.updateCurrentCrime() -- Update the current crime after giving items back
-                tes3.messageBox("You returned the stolen items to %s. They seem displeased", npcName)
-                npcRef.object.baseDisposition = math.max(npcRef.object.baseDisposition - config.dispositionDropOnDiscovery, 0)
+                -- Player chose to surrender. Start vanilla dialogue
+                npcRef.mobile:startDialogue()
             elseif e.button == 1 then
-                local playerGold = tes3.getPlayerGold()
-                if playerGold > bribeValue then
-                    tes3.payMerchant{merchant = npcRef.mobile, cost = bribeValue}
-                    tes3.playSound{reference = tes3.player, sound = "Item Gold Down"}
-                    util.removeOwnership(npcItems.items)
+                local reputationTerm  = tes3.player.object.reputation
+                local speechcraftTerm = tes3.mobilePlayer.speechcraft.current
+                local check = (reputationTerm + 0.5*speechcraftTerm) > math.random(5,150)
+                if check then
+                    tes3.messageBox("A thousand pardons, Outlander")
+                    util.removeOwnership(stolenItems)
                     util.updateCurrentCrime() -- Update the current crime
-                    tes3.messageBox("Wealth beyond measure, Outlander. Next time, choose a merchant.")
                 else
-                -- Not enough gold, player chose to give items back
-                util.giveItemsBack(npcRef,npcItems.items)
-                tes3.updateInventoryGUI({reference = tes3.player}) -- Update the inventory GUI to reflect changes
-                util.updateCurrentCrime() -- Update the current crime after giving items back
-                tes3.messageBox("You don't have enough gold and returned the stolen items to %s. They seem very displeased", npcName)
-                npcRef.object.baseDisposition = math.max(npcRef.object.baseDisposition - config.dispositionDropOnDiscovery*1.25, 0)
+                    tes3.messageBox("Why should I care?")
+                    npcRef.mobile:startDialogue()
+                end
+            elseif e.button == 2 then
+                -- This one is tricky
+                local sneakTerm = tes3.mobilePlayer.sneak.current
+                local securityTerm = tes3.mobilePlayer.security.current
+                local check = (0.5*sneakTerm + 0.5* securityTerm) > math.random(5,150)
+                if check then
+                    tes3.messageBox("Hmpf... Seems like I was mistaken")
+                    util.removeOwnership(stolenItems)
+                    util.updateCurrentCrime() -- Update the current crime
+                else
+                    tes3.messageBox("Caught red handed, thief!")
+                    npcRef.mobile:startDialogue()
+                end
+            elseif e.button == 3 then
+                local speechcraftTerm = tes3.mobilePlayer.speechcraft.current
+                local dispostionTerm = npcRef.object.disposition
+                local check = (0.5*speechcraftTerm + 0.75*dispostionTerm) > math.random(5,150)
+                 if check then
+                    tes3.messageBox("Very well... I think I can let this slide for now")
+                    util.removeOwnership(stolenItems)
+                    util.updateCurrentCrime() -- Update the current crime
+                else
+                    tes3.messageBox("Caught red handed, thief!")
+                    npcRef.mobile:startDialogue()
                 end
             else
-                -- Player chose to fight
-                tes3.messageBox("You chose to fight %s!", npcID)
-                tes3.triggerCrime({
-                    type = tes3.crimeType.theft,
-                    value = npcItems.value or 0,
-                    victim = npcRef,
-                    forceDetection = true,
-                })
-                if npcRef.mobile then npcRef.mobile:startCombat(tes3.mobilePlayer) end
+                npcRef.mobile:startDialogue()
             end
         end,})
 end
