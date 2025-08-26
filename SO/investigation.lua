@@ -60,7 +60,15 @@ end
 local function returnToOriginalPosition(e)
     local data = e.timer.data
     if not data then log:debug("Payload for returnToOriginalPosition is missing") return end
-    local npcRef = tes3.getReference(data.npcRef) or nil
+    
+    -- We try to get the list of actors that are currently loaded
+    local npcRef = nil
+    local loadedActors = tes3.worldController.allMobileActors
+    for _,actor in pairs(loadedActors) do
+        if actor.reference.id then
+            npcRef = actor.reference
+        end
+    end
     if not npcRef then log:debug("Reference does not exist in Return To Original Position") return end
     tes3.setAITravel({reference = npcRef, destination = data.originalPosition, reset = true})
 end
@@ -70,22 +78,31 @@ end
 local function checkDestination(e)
     local data = e.timer.data
     if not data then log:debug("Timer data payload not present") e.timer:cancel() return end
-    ---@type tes3reference
-    local npcRef = tes3.getReference(data.npcRef)
+    local npcRef = nil
+    local loadedActors = tes3.worldController.allMobileActors
+    for _,actor in pairs(loadedActors) do
+        if actor.reference.id then
+            npcRef = actor.reference
+        end
+    end
     -- Check if this still exists
     if not (npcRef and npcRef.mobile) then
         log:debug("Reference no longer valid or mobile does not exist anymore")
         e.timer:cancel() return
     end
+    
+    -- Kill this check? 
+    --[[
     -- Check if the mobile is in the same cell as the player. if not, reset the position
-    if npcRef.mobile.cell ~= tes3.mobilePlayer.cell then
+        if npcRef.mobile.cell ~= tes3.mobilePlayer.cell then
         log:debug("NPC not in the same cell. Returning to original position")
         -- The below concept is cursed. Let's just cancel the travel and let them wander around in the new position
         -- We select the original position 
         --local rePosition = data.originalPosition or npcRef.mobile.position
         --npcRef.mobile.position = rePosition
         investigation.startWander(npcRef)
-    end
+    end 
+    --]]
     -- Check if the AI package is still travel or if we have arrived and it is wander
     local npcAIPackage = npcRef.mobile.aiPlanner.currentPackageIndex
     local AITravel = npcAIPackage == tes3.aiPackage.travel

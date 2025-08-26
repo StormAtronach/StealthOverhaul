@@ -224,11 +224,19 @@ function util.removeOwnership(items)
 end
 
 --- Owner detection stream
----@param npcID string
-function util.gotCaughtOwner(npcID)
+---@param npcSafeHandle mwseSafeObjectHandle
+function util.gotCaughtOwner(npcSafeHandle)
     util.updateCurrentCrime() -- Ensure current crime is updated
     local data = util.getData()
-    local npcRef = tes3.getReference(npcID) ---@cast npcRef tes3reference
+    local npcRef = nil
+    if npcSafeHandle:valid() then
+        ---@type tes3reference
+        npcRef = npcSafeHandle:getObject()
+    else
+        log:debug("Reference was not valid when it got to gotCaughtOwner")
+        return
+    end
+    --local npcRef = tes3.getReference(npcID) ---@cast npcRef tes3reference
 
     -- Obsesively nil checking everything to avoid crashes:
     if not npcRef or not npcRef.object or not npcRef.object.name then
@@ -302,12 +310,18 @@ function util.gotCaughtOwner(npcID)
 end
 
 --- Guard detection stream
----@param npcID string
-function util.gotCaughtGuard(npcID)
+---@param npcSafeHandle mwseSafeObjectHandle
+function util.gotCaughtGuard(npcSafeHandle)
     util.updateCurrentCrime() -- Ensure current crime is updated
     local data = util.getData()
-    local npcRef = tes3.getReference(npcID) ---@cast npcRef tes3reference
-
+    local npcRef = nil
+    if npcSafeHandle:valid() then
+        ---@type tes3reference
+        npcRef = npcSafeHandle:getObject()
+    else
+        log:debug("Reference was not valid when it got to gotCaughtGuard")
+        return
+    end
     -- Obsesively nil checking everything to avoid crashes:
     if (not npcRef) or (not npcRef.object) or not (npcRef.mobile) then
         log:debug("Invalid NPC reference for %s", npcID)

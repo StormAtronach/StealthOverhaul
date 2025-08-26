@@ -58,7 +58,8 @@ local function detected(e)
 			detectionChance = 0
 		end
 		if check then
-			util.gotCaughtGuard(e.detector.reference.id)
+			local guardSH = tes3.makeSafeObjectHandle(e.detector.reference)
+			util.gotCaughtGuard(guardSH)
 		else
 			if detectionChance < 6 then
 				-- Nothing
@@ -94,7 +95,9 @@ local function detected(e)
 		local detectionChance = math.clamp(math.round(100*(lootScore + npcScore)/(playerScore), 0),0,100)
 		local check = detectionChance >= math.random(5,95) -- Easter egg, let's see if anyone reads the code. this would be nice for perks, though
 		if check then
-			util.gotCaughtOwner(e.detector.reference.id)
+			-- Create a safe handle and pass it to gotCaughtOwner
+			local npcSH = tes3.makeSafeObjectHandle(e.detector.reference)
+			util.gotCaughtOwner(npcSH)
 		else
 			if detectionChance < 6 then
 				-- Nothing
