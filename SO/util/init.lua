@@ -133,7 +133,7 @@ function util.checkInventoryForStolenItems()
     -- Scan the player's inventory for stolen items. Still have to figure out how to go through the ashfall containers.
     for _,  stack in pairs(tes3.player.object.inventory) do
 
-        local item  = stack.object
+        local item  = stack.object ---@cast item tes3item
         if  tes3.getItemIsStolen({item = item}) then
             local size      = util.getMaxSize(item) or 0
             local value     = tes3.getValue({item = item}) or 0
@@ -228,10 +228,10 @@ end
 function util.gotCaughtOwner(npcSafeHandle)
     util.updateCurrentCrime() -- Ensure current crime is updated
     local data = util.getData()
-    local npcRef = nil
+    local npcRef = nil ---@cast npcRef tes3actor
     if npcSafeHandle:valid() then
         ---@type tes3reference
-        npcRef = npcSafeHandle:getObject()
+        npcRef = npcSafeHandle:getObject() 
     else
         log:debug("Reference was not valid when it got to gotCaughtOwner")
         return
@@ -240,13 +240,13 @@ function util.gotCaughtOwner(npcSafeHandle)
 
     -- Obsesively nil checking everything to avoid crashes:
     if not npcRef or not npcRef.object or not npcRef.object.name then
-        log:debug("Invalid NPC reference for %s", npcID)
+        log:debug("Invalid NPC reference")
         return
     end
 
     local npcItems = data and data.currentCrime and data.currentCrime.npcs and data.currentCrime.npcs[npcRef.object.name:lower()] or nil
     if not npcItems then
-        log:debug("No data for NPC %s", npcID)
+        log:debug("No data for NPC %s", npcRef.object.name)
         return
     end
     local bribeValue = math.round(npcItems.value * (1 + 50/tes3.mobilePlayer.mercantile.current),0)
@@ -297,7 +297,7 @@ function util.gotCaughtOwner(npcSafeHandle)
                 end
             else
                 -- Player chose to fight
-                tes3.messageBox("You chose to fight %s!", npcID)
+                tes3.messageBox("You chose to fight %s!", npcRef.object.name)
                 tes3.triggerCrime({
                     type = tes3.crimeType.theft,
                     value = npcItems.value or 0,
@@ -324,7 +324,7 @@ function util.gotCaughtGuard(npcSafeHandle)
     end
     -- Obsesively nil checking everything to avoid crashes:
     if (not npcRef) or (not npcRef.object) or not (npcRef.mobile) then
-        log:debug("Invalid NPC reference for %s", npcID)
+        log:debug("Invalid NPC reference in gotCaughtGuard")
         return
     end
 
@@ -333,7 +333,7 @@ function util.gotCaughtGuard(npcSafeHandle)
 
     -- Is it an ordinator?
     local helmet = tes3.getEquippedItem({
-        actor = npcRef.mobile,
+        actor = npcRef,
         slot = tes3.armorSlot.helmet,
         objectType = tes3.objectType.armor
     })

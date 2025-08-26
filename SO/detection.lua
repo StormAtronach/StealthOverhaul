@@ -10,6 +10,7 @@ local log = mwse.Logger.new({
 
 local detection = {}
 local npcsTracking = {}
+local staticsCooldown = {}
 
 ---@param e loadEventData
 local function onLoad(e)
@@ -78,6 +79,7 @@ local function didTheyHearThat()
         local mobileActors = tes3.findActorsInProximity({reference = tes3.player, range = 2000})
         local data = util.getData()
         for _,actor in pairs(mobileActors) do
+            ---@cast actor tes3mobileNPC
             if actor == tes3.mobilePlayer then goto continue end
             -- If the actor has been called in the last 10 seconds, ignore them
             if npcsTracking[actor.object.id] then
