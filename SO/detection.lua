@@ -19,7 +19,7 @@ end
 event.register(tes3.event.loaded,onLoad)
 
 local function getFootwear()
-	local equippedBootsArmor = tes3.getEquippedItem({ actor = tes3.player, objectType = tes3.objectType.armor,slot=5})
+	local equippedBootsArmor = tes3.getEquippedItem({ actor = tes3.player, objectType = tes3.objectType.armor,slot=tes3.armorSlot.boots})
 	local footwearType = 0
 	if (equippedBootsArmor) then
 		footwearType = (equippedBootsArmor.object.weightClass)
