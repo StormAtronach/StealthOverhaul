@@ -420,6 +420,23 @@ function util.gotCaughtGuard(npcSafeHandle)
                     forceDetection = true,
                 })
                 end
+                local guardSH = tes3.makeSafeObjectHandle(npcRef)
+                timer.start({
+                    type = timer.simulate(),
+                    duration = 0.1,
+                    callback = function() 
+                        if guardSH:valid() then
+                            local guard = guardSH:getObject()
+                            if guard.mobile then
+                            guard.mobile:startDialogue()
+                            else
+                            log:debug("When attempting to initiate dialogue with guard when caught, the actor mobile was not found")
+                            end
+                        else
+                            log:debug("The guard safe handle was not valid anymore")
+                        end
+                    end
+                })
             elseif e.button == 2 then
                 -- This one is tricky
                 local sneakTerm = tes3.mobilePlayer.sneak.current
