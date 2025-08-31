@@ -100,7 +100,7 @@ local function didTheyHearThat()
                 if actor.actorType == tes3.actorType.npc then
                 tes3.messageBox("What was that?")
                 elseif actor.actorType == tes3.actorType.creature then
-                tes3.messageBox("Grroarr?")
+                --tes3.messageBox("Grroarr?")
                 end
                 investigation.startTravel(actor.reference,tes3.player.position)
                 npcsTracking[actor.object.id] = tes3.getSimulationTimestamp(false)
