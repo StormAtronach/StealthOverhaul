@@ -91,7 +91,7 @@ local function attackHitCallback(e)
 		end
 	-- Now for the lethal stream
 	elseif relevantSkill == tes3.skill.shortBlade then
-		local sneakStrikeFactor = (2 + math.clamp(e.mobile.sneak.current/25,0,6)) or 1
+		local sneakStrikeFactor = (4 + math.clamp(2*e.mobile.sneak.current/25,0,6)) or 1
 		e.mobile.actionData.physicalDamage = e.mobile.actionData.physicalDamage*sneakStrikeFactor
 		tes3.messageBox(string.format("Sneak attack! %s x damage",sneakStrikeFactor))
 	end
