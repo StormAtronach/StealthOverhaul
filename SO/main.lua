@@ -90,7 +90,7 @@ local function detected(e)
 
 		-- Basic score for the owner taking into account value and size of the loot
 		local ownerStuff 	= data.currentCrime.npcs[ownerName]
-		local npcScore 		= 0.75*(e.detector.sneak.current + e.detector.security.current + e.detector.mercantile.current)
+		local npcScore 		= 0 -- 0.75*(e.detector.sneak.current + e.detector.security.current + e.detector.mercantile.current) -- This is way too OP for the owner
 		local lootScore 	= ownerStuff.size + 0.1*ownerStuff.value
 		local detectionChance = math.clamp(math.round(100*(lootScore + npcScore)/(playerScore), 0),0,100)
 		local check = detectionChance >= math.random(5,95) -- Easter egg, let's see if anyone reads the code. this would be nice for perks, though
@@ -137,4 +137,5 @@ event.register(tes3.event.menuExit, menuExitCallback)
 
 
 
---event.register(tes3.event.detectSneak, detectSneakCallback)
+
+
