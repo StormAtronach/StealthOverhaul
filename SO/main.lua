@@ -42,6 +42,8 @@ local function detected(e)
 	-- If there is not current crime, do nothing
 	if (data.currentCrime.size == 0) and (data.currentCrime.value == 0) then return end
 
+	local bounty = tes3.player.object.bounty
+
 	--- Guard detection stream
 	local cooldownActive = (tes3.getSimulationTimestamp(false) - guardCooldown) < (config.guardCooldownTime or 5)
 	if e.detector.object.isGuard and (not cooldownActive) then
