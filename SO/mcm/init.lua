@@ -218,6 +218,15 @@ local function registerModConfig()
         configKey = "maxTravelTime",
     })
 
+        page:createSlider({
+        label = "Bounty threshold",
+        description = "Bounty that will prompt the guards to carry random frisking",
+        min = 0,
+        max = 1000,
+        step = 10,
+        configKey = "bountyThreshold",
+    })
+
 end
 
 event.register(tes3.event.modConfigReady, registerModConfig)

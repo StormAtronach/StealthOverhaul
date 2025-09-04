@@ -1,7 +1,8 @@
 {
     "Lua.runtime.version": "LuaJIT",
     "Lua.workspace.library": [
-        "C:\\Modlists\\Morrowind75\\root\\Data Files\\MWSE"
+        "C:\\Modlists\\Morrowind75\\root\\Data Files\\MWSE",
+        "D:\\Modlists\\Morrowind75\\root\\Data Files\\MWSE"
     ],
     "github.copilot.enable": {
         "lua": false

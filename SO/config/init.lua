@@ -9,6 +9,7 @@ local default = {
 	dispositionDropOnDiscovery = 20,
 	wanderRangeInterior = 500,
 	wanderRangeExterior = 2000,
+	bountyThreshold 	= 10,
 	guardCooldownTime = 5,
 	ownerCooldownTime = 5,
 	-- Sneak skill multipliers
