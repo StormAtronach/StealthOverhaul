@@ -3,10 +3,7 @@ local interop       = require("StormAtronach.SO.interop")
 local util          = require("StormAtronach.SO.util")
 local investigation = require("StormAtronach.SO.investigation")
 
-local log = mwse.Logger.new({
-	name = "Stealth Overhaul",
-	level = config.logLevel,
-})
+local log = mwse.Logger.new()
 
 local detection = {}
 local npcsTracking = {}

@@ -1,10 +1,7 @@
 local config = require("StormAtronach.SO.config")
 local interop = require("StormAtronach.SO.interop")
 
-local log = mwse.Logger.new({
-	name = "Stealth Overhaul",
-	level = mwse.logLevel.debug,
-})
+local log = mwse.Logger.new()
 
 local investigation = {}
 

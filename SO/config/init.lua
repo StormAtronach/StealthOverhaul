@@ -34,8 +34,13 @@ local default = {
 ---@field fileName string
 
 local config = mwse.loadConfig(fileName, default) --[[@as template.config]]
-config.version = "0.1.0"
+config.version = "0.2.0"
 config.default = default
 config.fileName = fileName
+
+local log = mwse.Logger.new({
+	name = "Stealth Overhaul",
+	level = config.logLevel,
+})
 
 return config

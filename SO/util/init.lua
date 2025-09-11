@@ -1,8 +1,5 @@
 local config = require("StormAtronach.SO.config")
-local log = mwse.Logger.new({
-	name = "Grand Theft Vvardenfell",
-	level = config.logLevel,
-})
+local log = mwse.Logger.new()
 
 
 local util = {}

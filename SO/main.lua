@@ -5,10 +5,7 @@ local investigation = require("StormAtronach.SO.investigation")
 dofile("StormAtronach.SO.detection")
 dofile("StormAtronach.SO.sneakstrike")
 
-local log = mwse.Logger.new({
-	name = "Stealth Overhaul",
-	level = config.logLevel,
-})
+local log = mwse.Logger.new()
 
 dofile("StormAtronach.SO.mcm")
 
