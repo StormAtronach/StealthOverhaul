@@ -16,7 +16,6 @@ dofile("StormAtronach.SO.mcm")
 local guardCooldown = 0
 local npcCooldown = {}
 
-
 -- Housekeeping
 
 local function forceStealthCheck()
@@ -55,7 +54,7 @@ local function detected(e)
 		local detectionChance = math.clamp(math.round(100*data.currentCrime.size / playerScore, 0),0,100)
 		local check = detectionChance >= math.random(5,95) -- Easter egg, let's see if anyone reads the code. this would be nice for perks, though
 		-- Getting sniped by guards is not fun or immersive
-		if distanceTerm >= 3 then
+		if distanceTerm >= config.guardMaxDistance then
 			check = false
 			detectionChance = 0
 		end

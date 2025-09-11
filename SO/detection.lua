@@ -168,7 +168,12 @@ local function onVisualContact(e)
         local sneakTerm     = mp.sneak.current*config.sneakSkillMult/100
         local agilityTerm   = mp.agility.current*0.2
         local luckTerm      = mp.luck.current*0.1
-        playerScore = playerScore + sneakTerm + agilityTerm + luckTerm
+        playerScore = sneakTerm + agilityTerm + luckTerm
+    else
+        local sneakTerm     = mp.sneak.current*config.sneakSkillMult/100
+        local agilityTerm   = mp.agility.current*0.2
+        local luckTerm      = mp.luck.current*0.1
+        playerScore = math.clamp(0.25*(sneakTerm + agilityTerm + luckTerm),0,50)
     end
     -- 1.2 Boots term
     local footwearType = getFootwear() or 0
@@ -207,7 +212,8 @@ local function onVisualContact(e)
     -- Ok, for the final scoring, straight from Mort's book
     local finalScore    = playerScore - detectorScore
     local detected      = config.sneakDifficulty >= finalScore
-
+   -- local message = string.format("Player: %s, detector %s, detected: %s",playerScore,detectorScore,detected)
+   -- tes3.messageBox(message)
 return detected
 end
 
@@ -237,7 +243,7 @@ local function detectSneakCallback(e)
     --createLineRed( detectorEye, playerEye,"sneakDetectionRed")
     --log:debug("You were seen by: %s, distance: %s, vanilla: %s", e.detector.reference.id, distance,e.isDetected)
     -- Check if the player is detected
-    e.isDetected = onVisualContact(e) or false
+    e.isDetected = onVisualContact(e)
     -- If detected, trigger the visual detection event
         if e.isDetected then
            -- log:debug("Attempting to trigger visual detection event")
@@ -252,8 +258,13 @@ local function detectSneakCallback(e)
         if not e.claim then
             e.claim = true
             e.isDetected = false
+            
+            
         end
     end
+    -- Bringing over this from Stealth Improved in an effort to stabilize the stealth icon
+    e.detector.isPlayerDetected = e.isDetected
+    e.detector.isPlayerHidden   = not e.isDetected
 
 
 end

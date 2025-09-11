@@ -41,10 +41,22 @@ local function registerModConfig()
 	template:saveOnClose(config.fileName, config)
 
 	local page = template:createSideBarPage({
-		label = "Settings",
+		label = "General",
 		showReset = true,
 	}) --[[@as mwseMCMSideBarPage]]
 	createSidebar(page)
+
+    local detection = template:createSideBarPage({
+		label = "Detection",
+		showReset = true,
+	}) --[[@as mwseMCMSideBarPage]]
+	createSidebar(detection)
+
+    local investigation = template:createSideBarPage({
+		label = "Investigation",
+		showReset = true,
+	}) --[[@as mwseMCMSideBarPage]]
+	createSidebar(investigation)
 
 	page:createYesNoButton({
         label = "Enable Mod",
@@ -56,7 +68,7 @@ local function registerModConfig()
         configKey = "logLevel",
     })
 
-    page:createSlider({
+    detection:createSlider({
         label = "Detection Angle",
         description = "The angle at which the player can be detected by NPCs. 180 means they have perfect 360 vision.",
         min = 0,
@@ -64,8 +76,35 @@ local function registerModConfig()
         step = 1,
         configKey = "detectionAngle",
     })
-
+   
     page:createSlider({
+        label = "Bounty threshold",
+        description = "Bounty above which the guards will eye you suspiciously",
+        min = 0,
+        max = 1000,
+        step = 10,
+        configKey = "bountyThreshold",
+    })
+    
+    page:createSlider({
+        label = "Guard maximum detection distance",
+        description = "How close you have to be to the guards to trigger the detection of stolen items. Each unit corresponds approximately to 25 feet (approx 7.5 meters)",
+        min = 1,
+        max = 10,
+        step = 1,
+        configKey = "ownerCooldownTime",
+    })
+    
+    page:createSlider({
+        label = "Disposition Drop",
+        description = "How much disposition drops when found with stolen items by the owner.",
+        min = 0,
+        max = 100,
+        step = 1,
+        configKey = "dispositionDropOnDiscovery",
+    })
+
+    detection:createSlider({
         label = "Detection Cooldown (seconds)",
         description = "Cooldown for stolen item checks.",
         min = 1,
@@ -75,35 +114,8 @@ local function registerModConfig()
     })
 
     page:createSlider({
-        label = "Disposition Drop on Discovery",
-        description = "How much disposition drops when discovered.",
-        min = 0,
-        max = 100,
-        step = 1,
-        configKey = "dispositionDropOnDiscovery",
-    })
-
-    page:createSlider({
-        label = "Wander Range (Interior)",
-        description = "How far NPCs wander when investigating (interior).",
-        min = 100,
-        max = 2000,
-        step = 50,
-        configKey = "wanderRangeInterior",
-    })
-
-    page:createSlider({
-        label = "Wander Range (Exterior)",
-        description = "How far NPCs wander when investigating (exterior).",
-        min = 500,
-        max = 5000,
-        step = 100,
-        configKey = "wanderRangeExterior",
-    })
-
-    page:createSlider({
         label = "Guard Cooldown Time (seconds)",
-        description = "Cooldown before guards can detect you again.",
+        description = "Cooldown before guards can scan you for stolen items.",
         min = 1,
         max = 30,
         step = 1,
@@ -112,14 +124,22 @@ local function registerModConfig()
 
     page:createSlider({
         label = "Owner Cooldown Time (seconds)",
-        description = "Cooldown before owners can detect you again.",
+        description = "Cooldown before owners can scan you for stolen items.",
         min = 1,
         max = 30,
         step = 1,
         configKey = "ownerCooldownTime",
     })
-
-    page:createSlider({
+    
+    detection:createSlider({
+        label = "Sneak Difficulty",
+        description = "Difficulty threshold for sneaking.",
+        min = 0,
+        max = 200,
+        step = 1,
+        configKey = "sneakDifficulty",
+    })
+    detection:createSlider({
         label = "Sneak Skill Multiplier",
         description = "Multiplier for sneak skill in detection calculations.",
         min = 50,
@@ -128,7 +148,7 @@ local function registerModConfig()
         configKey = "sneakSkillMult",
     })
 
-    page:createSlider({
+    detection:createSlider({
         label = "Boot Multiplier",
         description = "Penalty for wearing heavier boots.",
         min = 0,
@@ -137,7 +157,7 @@ local function registerModConfig()
         configKey = "bootMultiplier",
     })
 
-    page:createSlider({
+    detection:createSlider({
         label = "Sneak Distance Base",
         description = "Base value for sneak distance calculations.",
         min = 0,
@@ -146,7 +166,7 @@ local function registerModConfig()
         configKey = "sneakDistanceBase",
     })
 
-    page:createSlider({
+    detection:createSlider({
         label = "Sneak Distance Multiplier",
         description = "Multiplier for sneak distance calculations.",
         min = 100,
@@ -155,7 +175,7 @@ local function registerModConfig()
         configKey = "sneakDistanceMultiplier",
     })
 
-    page:createSlider({
+    detection:createSlider({
         label = "Invisibility Bonus",
         description = "Bonus to sneaking while invisible.",
         min = 0,
@@ -164,7 +184,7 @@ local function registerModConfig()
         configKey = "invisibilityBonus",
     })
 
-    page:createSlider({
+    detection:createSlider({
         label = "NPC Sneak Bonus",
         description = "Bonus to NPCs' sneak detection.",
         min = 0,
@@ -173,16 +193,16 @@ local function registerModConfig()
         configKey = "npcSneakBonus",
     })
 
-    page:createSlider({
+    detection:createSlider({
         label = "View Multiplier",
         description = "Multiplier for NPC visual detection.",
         min = 1,
-        max = 10,
+        max = 5,
         step = 1,
         configKey = "viewMultiplier",
     })
 
-    page:createSlider({
+    detection:createSlider({
         label = "Hearing Multiplier",
         description = "Multiplier for NPC hearing detection.",
         min = 1,
@@ -191,16 +211,7 @@ local function registerModConfig()
         configKey = "hearingMultiplier",
     })
 
-    page:createSlider({
-        label = "Sneak Difficulty",
-        description = "Difficulty threshold for sneaking.",
-        min = 0,
-        max = 200,
-        step = 1,
-        configKey = "sneakDifficulty",
-    })
-
-    page:createSlider({
+    investigation:createSlider({
         label = "Min Travel Time (seconds)",
         description = "Minimum time NPCs travel while investigating.",
         min = 1,
@@ -209,7 +220,7 @@ local function registerModConfig()
         configKey = "minTravelTime",
     })
 
-    page:createSlider({
+    investigation:createSlider({
         label = "Max Travel Time (seconds)",
         description = "Maximum time NPCs travel while investigating.",
         min = 5,
@@ -218,13 +229,22 @@ local function registerModConfig()
         configKey = "maxTravelTime",
     })
 
-        page:createSlider({
-        label = "Bounty threshold",
-        description = "Bounty that will prompt the guards to carry random frisking",
-        min = 0,
-        max = 1000,
-        step = 10,
-        configKey = "bountyThreshold",
+    investigation:createSlider({
+        label = "Wander Range (Interior)",
+        description = "How far NPCs wander when investigating (interior).",
+        min = 100,
+        max = 2000,
+        step = 50,
+        configKey = "wanderRangeInterior",
+    })
+
+    investigation:createSlider({
+        label = "Wander Range (Exterior)",
+        description = "How far NPCs wander when investigating (exterior).",
+        min = 500,
+        max = 5000,
+        step = 100,
+        configKey = "wanderRangeExterior",
     })
 
 end

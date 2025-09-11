@@ -91,18 +91,6 @@ local function checkDestination(e)
         e.timer:cancel() return
     end
     
-    -- Kill this check? 
-    --[[
-    -- Check if the mobile is in the same cell as the player. if not, reset the position
-        if npcRef.mobile.cell ~= tes3.mobilePlayer.cell then
-        log:debug("NPC not in the same cell. Returning to original position")
-        -- The below concept is cursed. Let's just cancel the travel and let them wander around in the new position
-        -- We select the original position 
-        --local rePosition = data.originalPosition or npcRef.mobile.position
-        --npcRef.mobile.position = rePosition
-        investigation.startWander(npcRef)
-    end 
-    --]]
     -- Check if the AI package is still travel or if we have arrived and it is wander
     local npcAIPackage = npcRef.mobile.aiPlanner.currentPackageIndex
     local AITravel = npcAIPackage == tes3.aiPackage.travel
@@ -161,6 +149,13 @@ investigation.startTravel = function(npcRef, destination)
     if (not npcRef) or (not destination) then log:debug("Investigation start: Missing npcRef %s, missing destination %s", (not npcRef), (not destination)) return end
     local cantContinue = doChecks(npcRef)
     if cantContinue then log:debug("NPC is doing other stuff") return end
+
+    -- Let's avoid swimming creatures going on land
+    if npcRef.object and npcRef.object.swims then
+        local waterLevel = tes3.player.cell.waterLevel or -20000
+        local checkPosition = destination.z > waterLevel
+        if checkPosition then log:debug("Avoiding fishes from going on land") return end
+    end
 
     local aux = {}
     aux.originalPosition = npcRef.position:copy()
