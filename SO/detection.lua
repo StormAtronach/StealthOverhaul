@@ -75,6 +75,30 @@ local function onHearingNoise(npcMobile)
     return heard
 end
 
+local noiseMessages = {
+    "What was that?",
+    "Wait, what?",
+    "Something moved.",
+    "Who goes there?",
+    "Show yourself!",
+    "That noise again.",
+    "Did that creak?",
+    "Door just creaked.",
+    "Footsteps? Where?",
+    "Rats again?",
+    "That sounded weird.",
+    "Not again…",
+    "Another scrib?",
+    "Definitely not wind.",
+    "Something's off.",
+    "Explain that sound.",
+    "The ancestors again?.",
+    "I heard something.",
+    "That was… odd.",
+    "Who's there?",
+    "Hmmm, strange...",
+}
+
 local function didTheyHearThat()
         local mobileActors = tes3.findActorsInProximity({reference = tes3.player, range = 2000})
         local data = util.getData()
@@ -97,8 +121,8 @@ local function didTheyHearThat()
             local wasHeard = onHearingNoise(actor)
             log:debug("was heard? %s",wasHeard)
             if wasHeard then
-                if actor.actorType == tes3.actorType.npc then
-                tes3.messageBox("What was that?")
+                if actor.actorType == tes3.actorType.npc and (not tes3.mobilePlayer.inCombat) then
+                tes3.messageBox(noiseMessages[math.random(1,#noiseMessages)])
                 elseif actor.actorType == tes3.actorType.creature then
                 --tes3.messageBox("Grroarr?")
                 end
