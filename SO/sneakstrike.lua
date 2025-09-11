@@ -14,7 +14,7 @@ local function sneakAttack(e)
 end
 event.register("calcHitChance",sneakAttack)
 
---- Non-lethal and sneak strike stream
+--- Non-lethal and sneak strike stream. For now, it only applies to the player
 --- @param e attackHitEventData
 local function attackHitCallback(e)
 	-- If the attacker is not the player, do nothing
@@ -46,10 +46,8 @@ local function attackHitCallback(e)
 	-- If not one of these, do nothing
 	if relevantSkill == -1 then return end
 
-
-
 	-- Now, for the non-lethal stream
-	if relevantSkill == tes3.skill.handToHand or relevantSkill == tes3.skill.bluntWeapon then
+	if (relevantSkill == tes3.skill.handToHand) or (relevantSkill == tes3.skill.bluntWeapon) then
 		-- 1: Find the helmet that the target is wearing
 		local helmetScore = 0
 		-- 0 = No helmet 	1 = light
@@ -63,7 +61,7 @@ local function attackHitCallback(e)
 			helmetScore = 1 + helmet.object.weightClass
 		end
 		-- 2: Calculate the player score
-		local playerScore = math.floor(e.mobile.sneak.current/25)
+		local playerScore = math.floor(skillLevel/25)
 
 		local skillCheck = helmetScore < playerScore
 
@@ -79,12 +77,12 @@ local function attackHitCallback(e)
 				end
 
 			 end)
+		else
+			if helmet then
+			tes3.messageBox("This helmet was too tough!")
 			else
-				if helmet then
-				tes3.messageBox("This helmet was too tough!")
-				else
-				tes3.messageBox("I need to improve my skill")
-				end
+			tes3.messageBox("I need to improve my skill")
+			end
 		end
 	-- Now for the lethal stream
 	elseif relevantSkill == tes3.skill.shortBlade then
@@ -92,7 +90,6 @@ local function attackHitCallback(e)
 		e.mobile.actionData.physicalDamage = e.mobile.actionData.physicalDamage*sneakStrikeFactor
 		tes3.messageBox(string.format("Sneak attack! %s x damage",sneakStrikeFactor))
 	end
-
 
 end
 event.register(tes3.event.attackHit, attackHitCallback)

@@ -17,7 +17,7 @@ end
 --- @param container mwseMCMSideBarPage
 local function createSidebar(container)
 	container.sidebar:createInfo({
-		text = "\nWelcome to Stealth Overhaul!\n\nI will make a proper MCM soon(TM)! \n\nHover over a feature for more info.\n\nMade by:",
+		text = "\nWelcome to Stealth Overhaul!\n\nHover over a feature for more info.\n\nMade by:",
 		postCreate = center,
 	})
 	for _, author in ipairs(authors) do
@@ -32,7 +32,6 @@ end
 local function registerModConfig()
 	local template = mwse.mcm.createTemplate({
 		name = "Stealth Overhaul",
-		--headerImagePath = "MWSE/mods/template/mcm/Header.tga",
 		config = config,
 		defaultConfig = config.default,
 		showDefaultSetting = true,
@@ -92,7 +91,7 @@ local function registerModConfig()
         min = 1,
         max = 10,
         step = 1,
-        configKey = "ownerCooldownTime",
+        configKey = "guardMaxDistance",
     })
     
     page:createSlider({
