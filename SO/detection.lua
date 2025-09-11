@@ -160,6 +160,7 @@ event.register("addSound", onAddSound,{priority = 999999}) -- The footsteps from
 local messagesOnCollision = {"BONK!", "OUCH", "AIEE", "KABONK", "WHUMP","SPLOINK","THWOK","KADONK"}
 --- @param e collisionEventData
 local function onCollision(e)
+    if not e.reference == tes3.player then return end
     local target = e.target
     if not target then return end
     if tes3.mobilePlayer.levitate < 1 then return end
@@ -175,7 +176,7 @@ local function onCollision(e)
         didTheyHearThat()
     end
 end
-event.register(tes3.event.collision, onCollision, { filter = ("PlayerSaveGame"):lower() })
+event.register(tes3.event.collision, onCollision)
 
 --- @param e detectSneakEventData
 local function onVisualContact(e)
