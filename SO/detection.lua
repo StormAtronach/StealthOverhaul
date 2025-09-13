@@ -109,10 +109,17 @@ local function didTheyHearThat()
             end
 			local actorName = actor.reference and actor.reference.object.name:lower()
             -- Is it a hostile actor or has the player stolen from them?
-            local fightCheck = actor.fight < 80
+            local notFightCheck = actor.fight < 80
+            -- I have to add a disponsition check, otherwise creatures like the bull netch will follow the player around, and potentially but not yet hostile NPCs will trigger the detection
+            local disposition = actor and actor.object and actor.object.disposition or 50
+            local dispositionCheck = disposition >= 45
+            if actor.fight > 70 and actor.fight < 83 and dispositionCheck then
+                notFightCheck = true
+            end
+
             local stolenCheck = data.currentCrime.npcs[actorName] and true or false
-            log:debug("Name: %s,Fight check: %s, Stolen Objects: %s",actor.reference.object.name, fightCheck, stolenCheck)
-            if fightCheck and (not stolenCheck) then goto continue end
+            log:debug("Name: %s,Fight check: %s, Stolen Objects: %s",actor.reference.object.name, notFightCheck, stolenCheck)
+            if notFightCheck and (not stolenCheck) then goto continue end
             
             log:debug("Actor detected, starting onHearingNoise for %s, actor name: %s",actor.object.id,actorName)
             local wasHeard = onHearingNoise(actor)
