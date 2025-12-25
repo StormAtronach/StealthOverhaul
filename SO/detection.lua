@@ -129,7 +129,7 @@ local function didTheyHearThat()
             local wasHeard = onHearingNoise(actor)
             log:debug("was heard? %s",wasHeard)
             if wasHeard then
-                if actor.actorType == tes3.actorType.npc and (not mobilePlayer.inCombat) then
+                if actor.actorType == tes3.actorType.npc and (not mobilePlayer.inCombat) and stolenCheck then
                 tes3.messageBox(noiseMessages[math.random(1,#noiseMessages)])
                 elseif actor.actorType == tes3.actorType.creature then
                 --tes3.messageBox("Grroarr?")
@@ -172,7 +172,7 @@ event.register("addSound", onAddSound,{priority = 999999}) -- The footsteps from
 local messagesOnCollision = {"BONK!", "OUCH", "AIEE", "KABONK", "WHUMP","SPLOINK","THWOK","KADONK"}
 --- @param e collisionEventData
 local function onCollision(e)
-    if not e.reference == tes3.player then return end
+    if e.reference ~= tes3.player then return end
     local target = e.target
     if not target then return end
     if tes3.mobilePlayer.levitate < 1 then return end

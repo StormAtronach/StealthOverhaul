@@ -4,7 +4,7 @@ local fileName = "StormAtronach.SO"
 local default = {
 	modEnabled 					= true,
 	logLevel 					= mwse.logLevel.error,
-	detectionAngle 				= 80, -- degrees
+	detectionAngle 				= 90, -- degrees
 	detectionCooldown 			= 5, -- seconds, cooldown for stolen ITEMs check
 	dispositionDropOnDiscovery 	= 20,
 	wanderRangeInterior 		= 500,
@@ -13,7 +13,7 @@ local default = {
 	guardCooldownTime 			= 5,
 	ownerCooldownTime 			= 5,
 	guardMaxDistance 			= 4, -- roughly 100 feet / 30 meters
-	lenience					= 1.25,
+	lenience					= 1.1,
 	stepTriggerChance 			= 50,
 	-- Sneak skill multipliers
 	sneakSkillMult 				= 100,

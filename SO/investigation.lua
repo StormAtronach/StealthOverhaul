@@ -20,6 +20,7 @@ local function generateIdles()
     for i = 6, 8 do idles[i] = math.random(0, 60) end
     return idles
 end
+
 -- Auxiliary function to find actors
 ---@param npcId string
 ---@return tes3reference|nil
@@ -33,8 +34,6 @@ local function findLoadedActor(npcId)
     end
     return nil
 end
-
-
 
 ---@param npcRef tes3reference
 local function doChecks(npcRef)
@@ -72,9 +71,10 @@ local function returnToOriginalPosition(e)
     local data = e.timer.data
     if not data then log:debug("Payload for returnToOriginalPosition is missing") return end
     
-    -- We try to get the list of actors that are currently loaded
-    local npcRef = findLoadedActor(data.npcRef)
-    if not npcRef then log:debug("Reference does not exist in Return To Original Position") return end
+    local npcRefSH = data.npcRef
+
+    if not npcRefSH:valid() then log:debug("Reference does not exist in Return To Original Position") return end
+    local npcRef = npcRefSH:getObject()
     tes3.setAITravel({reference = npcRef, destination = data.originalPosition, reset = true})
 end
 
@@ -84,12 +84,14 @@ local function checkDestination(e)
     local data = e.timer.data
     if not data then log:debug("Timer data payload not present") e.timer:cancel() return end
 
-    local npcRef = findLoadedActor(data.npcRef)
+    local npcRefSH = data.npcRef
     -- Check if this still exists
-    if not (npcRef and npcRef.mobile) then
+    if not npcRefSH:valid() then
         log:debug("Reference no longer valid or mobile does not exist anymore")
         e.timer:cancel() return
     end
+
+    local npcRef = npcRefSH:getObject()
 
     -- It is possible that the AI is not active then
     if not npcRef.mobile.aiPlanner then
@@ -121,6 +123,7 @@ local function checkDestination(e)
     local destination = data.destination or npcRef.mobile.position:copy()
     local remainingDistance =  npcRef.mobile.position:distance(destination)
 
+    local npcRefSHExit = tes3.makeSafeObjectHandle(npcRef)
     -- Are we there yet?
     if remainingDistance <= 5 or AIWander then
         -- If we arrived, cancel the timer
@@ -140,7 +143,7 @@ local function checkDestination(e)
             callback = "SA_SO_startTripBack",
             iterations = 1,
             persist = true,
-            data = {npcRef = npcRef.id, originalPosition = data.originalPosition},
+            data = {npcRef = npcRefSHExit, originalPosition = data.originalPosition},
             })
         
     end
@@ -179,14 +182,15 @@ investigation.startTravel = function(npcRef, destination)
 log:debug("Attempting to start travel. NPC %s, duration %s",npcRef.id,aux.duration)
 local message = string.format("Attempting to start travel. NPC %s, duration %s",npcRef.id,aux.duration)
 -- tes3.messageBox(message) -- Debugging stuff
-    timer.register("SA_SO_checkIfNPCArrived", checkDestination)
+
+timer.register("SA_SO_checkIfNPCArrived", checkDestination)
     timer.start({
         type        = timer.simulate,
         duration    = 1,
         callback    = "SA_SO_checkIfNPCArrived",
         iterations  = aux.duration,
         persist     = true,
-        data        = {npcRef = npcRef.id, destination = destination, originalPosition = aux.originalPosition}
+        data        = {npcRef = npcRefSafe, destination = destination, originalPosition = aux.originalPosition}
     })
     return aux
 end

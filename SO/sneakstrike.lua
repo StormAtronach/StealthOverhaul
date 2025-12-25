@@ -67,11 +67,11 @@ local function attackHitCallback(e)
 
 		if skillCheck then
 			e.targetMobile:applyFatigueDamage(3000)
-			local victim = tes3.makeSafeObjectHandle(e.targetReference)
+			local victimSH = tes3.makeSafeObjectHandle(e.targetReference)
 			timer.delayOneFrame(
-				function() if victim:valid() then
-					local victimSH = victim:getObject()
-					victimSH.mobile:stopCombat(true)
+				function() if victimSH:valid() then
+					local victim = victimSH:getObject()
+					victim.mobile:stopCombat(true)
 				else
 					log:debug("Reference got invalidated in the non-lethal stream delayOneFrame")
 				end
