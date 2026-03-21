@@ -1,96 +1,114 @@
-local interop = require("StormAtronach.SO.interop")
-
 local config = require("StormAtronach.SO.config")
 local log = mwse.Logger.new({ moduleName = "sneakstrike", level = config.logLevel })
 
---- Set hit chance to 100 if sneak strike (From Mort's Stealth improved)
---- @param e calcHitChanceEventData
+--- Map tes3.weaponType values to the string keys used in config tables.
+local weaponTypeKeys = {
+	[tes3.weaponType.shortBladeOneHand] = "shortBladeOneHand",
+	[tes3.weaponType.longBladeOneHand]  = "longBladeOneHand",
+	[tes3.weaponType.longBladeTwoClose] = "longBladeTwoClose",
+	[tes3.weaponType.bluntOneHand]      = "bluntOneHand",
+	[tes3.weaponType.bluntTwoClose]     = "bluntTwoClose",
+	[tes3.weaponType.bluntTwoWide]      = "bluntTwoWide",
+	[tes3.weaponType.spearTwoWide]      = "spearTwoWide",
+	[tes3.weaponType.axeOneHand]        = "axeOneHand",
+	[tes3.weaponType.axeTwoHand]        = "axeTwoHand",
+	[tes3.weaponType.marksmanBow]       = "marksmanBow",
+	[tes3.weaponType.marksmanCrossbow]  = "marksmanCrossbow",
+	[tes3.weaponType.marksmanThrown]    = "marksmanThrown",
+}
+
+--- Map weapon type keys to the mobile skill stat name used in the helmet check.
+local weaponSkillStats = {
+	handToHand        = "handToHand",
+	shortBladeOneHand = "shortBlade",
+	longBladeOneHand  = "longBlade",
+	longBladeTwoClose = "longBlade",
+	bluntOneHand      = "bluntWeapon",
+	bluntTwoClose     = "bluntWeapon",
+	bluntTwoWide      = "bluntWeapon",
+	spearTwoWide      = "spear",
+	axeOneHand        = "axe",
+	axeTwoHand        = "axe",
+	marksmanBow       = "marksman",
+	marksmanCrossbow  = "marksman",
+	marksmanThrown    = "marksman",
+}
+
+--- Set hit chance to 100 on a sneak strike.
+---@param e calcHitChanceEventData
 local function sneakAttack(e)
+	if not config.modEnabled or not config.sneakStrikeEnabled then return end
 	if e.attacker == tes3.player and e.targetMobile then
-		if tes3.mobilePlayer.isSneaking and (not e.targetMobile.isPlayerDetected) then
+		if tes3.mobilePlayer.isSneaking and not e.targetMobile.isPlayerDetected then
 			e.hitChance = 100
 		end
 	end
 end
-event.register("calcHitChance",sneakAttack)
+event.register("calcHitChance", sneakAttack)
 
---- Non-lethal and sneak strike stream. For now, it only applies to the player
---- @param e attackHitEventData
+---@param e attackHitEventData
 local function attackHitCallback(e)
-	-- If the attacker is not the player, do nothing
+	if not config.modEnabled or not config.sneakStrikeEnabled then return end
 	if e.reference ~= tes3.player then return end
-	-- If the player is not sneaking, do nothing
 	if not tes3.mobilePlayer.isSneaking then return end
-	-- If there is not target, then do nothing
 	if not e.targetMobile then return end
-	-- If the player has been already detected, do nothing
 	if e.targetMobile.isPlayerDetected then return end
-	-- If the target is not an NPC, then do nothing
 	if e.targetMobile.actorType ~= tes3.actorType.npc then return end
 
-	-- Let's find what weapon is the player holding
-	local relevantSkill = -1
-	local skillLevel = -1
+	-- Determine weapon type key
+	local weaponTypeKey
 	local weapon = e.mobile.readiedWeapon
 	if not weapon then
-		relevantSkill 	= tes3.skill.handToHand
-		skillLevel 		= e.mobile.handToHand.current
-	elseif weapon.object and weapon.object.type == tes3.weaponType.shortBladeOneHand then
-		relevantSkill 	= tes3.skill.shortBlade
-		skillLevel 		= e.mobile.shortBlade.current
-	elseif 	(weapon.object and weapon.object.type == tes3.weaponType.bluntOneHand) or
-			(weapon.object and weapon.object.type == tes3.weaponType.bluntTwoWide) then
-		relevantSkill 	= tes3.skill.bluntWeapon
-		skillLevel 		= e.mobile.bluntWeapon.current
+		weaponTypeKey = "handToHand"
+	elseif weapon.object then
+		weaponTypeKey = weaponTypeKeys[weapon.object.type]
 	end
-	-- If not one of these, do nothing
-	if relevantSkill == -1 then return end
+	if not weaponTypeKey then return end
 
-	-- Now, for the non-lethal stream
-	if (relevantSkill == tes3.skill.handToHand) or (relevantSkill == tes3.skill.bluntWeapon) then
-		-- 1: Find the helmet that the target is wearing
-		local helmetScore = 0
-		-- 0 = No helmet 	1 = light
-		-- 2 = medium		3 = heavy
+	local multiplier  = (config.sneakStrikeMult and config.sneakStrikeMult[weaponTypeKey]) or 1.0
+	local isNonLethal = multiplier == 1.0
+
+	-- Undo vanilla's 4x sneak multiplier, then apply our per-weapon multiplier
+	local baseDamage = e.mobile.actionData.physicalDamage / 4
+	e.mobile.actionData.physicalDamage = baseDamage * multiplier
+
+	log:debug("Sneak attack [%s]: baseDamage=%.1f mult=x%.2f newDamage=%.1f nonLethal=%s",
+		weaponTypeKey, baseDamage, multiplier, e.mobile.actionData.physicalDamage, tostring(isNonLethal))
+
+	if isNonLethal then
+		-- Helmet check: player's relevant skill tier vs target's helmet weight class
 		local helmet = tes3.getEquippedItem({
-			actor = e.targetMobile,
-			slot = tes3.armorSlot.helmet,
-			objectType = tes3.objectType.armor
+			actor    = e.targetMobile,
+			slot     = tes3.armorSlot.helmet,
+			objectType = tes3.objectType.armor,
 		})
+		local helmetScore = 0
 		if helmet and helmet.object and helmet.object.weightClass then
-			helmetScore = 1 + helmet.object.weightClass
+			helmetScore = 1 + helmet.object.weightClass  -- 1=light 2=medium 3=heavy
 		end
-		-- 2: Calculate the player score
-		local playerScore = math.floor(skillLevel/25)
+		local skillStatName = weaponSkillStats[weaponTypeKey] or "handToHand"
+		local skillLevel    = e.mobile[skillStatName] and e.mobile[skillStatName].current or 0
+		local playerScore   = math.floor(skillLevel / 25)
 
-		local skillCheck = helmetScore < playerScore
+		log:debug("Non-lethal check: skill=%s(%d) playerScore=%d helmetScore=%d",
+			skillStatName, skillLevel, playerScore, helmetScore)
 
-		if skillCheck then
+		if helmetScore < playerScore then
 			e.targetMobile:applyFatigueDamage(3000)
 			local victimSH = tes3.makeSafeObjectHandle(e.targetReference)
-			timer.delayOneFrame(
-				function() if victimSH:valid() then
-					local victim = victimSH:getObject()
-					local victimMobile = victim.mobile --[[@as tes3mobileActor]]
+			timer.delayOneFrame(function()
+				if victimSH:valid() then
+					local victimMobile = victimSH:getObject().mobile --[[@as tes3mobileActor]]
 					victimMobile:stopCombat(true)
 				else
-					log:debug("Reference got invalidated in the non-lethal stream delayOneFrame")
+					log:debug("Reference invalidated in non-lethal delayOneFrame")
 				end
-
-			 end)
-		else
-			if helmet then
-			tes3.messageBox("This helmet was too tough!")
-			else
-			tes3.messageBox("I need to improve my skill")
-			end
+			end)
 		end
-	-- Now for the lethal stream
-	elseif relevantSkill == tes3.skill.shortBlade then
-		local sneakStrikeFactor = 4 + math.clamp(2*e.mobile.sneak.current/25,0,12)
-		e.mobile.actionData.physicalDamage = e.mobile.actionData.physicalDamage*sneakStrikeFactor
-		tes3.messageBox(string.format("Sneak attack! %s x damage",sneakStrikeFactor))
+	else
+		if config.showSneakStrikeMessage then
+			tes3.messageBox(string.format("Sneak attack! x%.1f damage", multiplier))
+		end
 	end
-
 end
 event.register(tes3.event.attackHit, attackHitCallback)

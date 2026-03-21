@@ -212,7 +212,7 @@ end
 event.register(tes3.event.loaded, destroyAllBars)
 
 ---@param e simulateEventData
-event.register(tes3.event.simulate, function(e)
+local function onSimulate(e)
 	-- Hide all bars and cull all markers first
 	for _, bar in pairs(barPool) do
 		bar.menu.visible = false
@@ -220,6 +220,7 @@ event.register(tes3.event.simulate, function(e)
 	for _, entry in pairs(markerPool) do
 		entry.node.appCulled = true
 	end
+	if not config.modEnabled then return end
 
 	if tes3ui.menuMode() then
 		return
@@ -321,4 +322,5 @@ event.register(tes3.event.simulate, function(e)
 			detachMarker(actorId)
 		end
 	end
-end)
+end
+event.register(tes3.event.simulate, onSimulate)

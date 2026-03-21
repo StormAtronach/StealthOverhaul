@@ -33,6 +33,25 @@ local default = {
 	barRange = 2000,     -- bars/markers only shown within this distance (units)
 	markerMinSize = 20,  -- marker size at 1% suspicion (game units)
 	markerMaxSize = 60,  -- marker size at 100% suspicion (game units)
+	-- Sneak strike
+	sneakStrikeEnabled = true,
+	showSneakStrikeMessage = true, -- show a messageBox with the damage multiplier on a sneak strike
+	-- Per-weapon sneak strike multipliers (applied after undoing vanilla's 4x)
+	sneakStrikeMult = {
+		handToHand        = 1.0,  -- non-lethal by default, no damage bonus
+		shortBladeOneHand = 8.0,
+		longBladeOneHand  = 4.0,
+		longBladeTwoClose = 3.0,
+		bluntOneHand      = 1.0,  -- non-lethal by default
+		bluntTwoClose     = 2,
+		bluntTwoWide      = 1.0,  -- non-lethal by default
+		spearTwoWide      = 2.0,
+		axeOneHand        = 3.0,
+		axeTwoHand        = 2.0,
+		marksmanBow       = 1.5,
+		marksmanCrossbow  = 1.5,
+		marksmanThrown    = 1.5,
+	},
 	-- Debug
 	debugLines = false,
 }

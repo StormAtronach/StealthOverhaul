@@ -71,22 +71,7 @@ local function registerModConfig()
 	}) --[[@as mwseMCMSideBarPage]]
 	createSidebar(detection)
 
-	detection:createYesNoButton({
-		label = "Light Mechanic",
-		description = "When enabled, the player's elusiveness is reduced while standing inside the radius of a light source in interior cells.",
-		configKey = "lightMechanicEnabled",
-	})
-
-	detection:createSlider({
-		label = "Light Rate Multiplier",
-		description = "How much faster detection builds when the player is inside a light source's radius. 2.0 = double the detection rate. Only active when Light Mechanic is enabled.",
-		min = 1.0,
-		max = 5.0,
-		step = 0.5,
-		jump = 0.5,
-		decimalPlaces = 1,
-		configKey = "lightRateMult",
-	})
+	detection:createCategory({ label = "Detection Model" })
 
 	detection:createSlider({
 		label = "Base Detection Range (units)",
@@ -161,6 +146,27 @@ local function registerModConfig()
 		configKey = "detFloor",
 	})
 
+	detection:createCategory({ label = "Light Mechanic" })
+
+	detection:createYesNoButton({
+		label = "Enable Light Mechanic",
+		description = "When enabled, the player's elusiveness is reduced while standing inside the radius of a light source in interior cells.",
+		configKey = "lightMechanicEnabled",
+	})
+
+	detection:createSlider({
+		label = "Light Rate Multiplier",
+		description = "How much faster detection builds when the player is inside a light source's radius. 2.0 = double the detection rate. Only active when Light Mechanic is enabled.",
+		min = 1.0,
+		max = 5.0,
+		step = 0.5,
+		jump = 0.5,
+		decimalPlaces = 1,
+		configKey = "lightRateMult",
+	})
+
+	detection:createCategory({ label = "Suspicion Decay" })
+
 	detection:createSlider({
 		label = "Decay Time (seconds)",
 		description = "How many seconds it takes for full suspicion to clear completely once decay begins. Higher = NPCs stay alert longer.",
@@ -171,7 +177,7 @@ local function registerModConfig()
 	})
 
 	detection:createSlider({
-		label = "Suspicion Decay Delay (seconds)",
+		label = "Decay Delay (seconds)",
 		description = "How long after the last suspicion increase before decay begins. Keeps NPCs alert for a moment even when the player steps out of detection range.",
 		min = 0,
 		max = 60,
@@ -179,6 +185,7 @@ local function registerModConfig()
 		configKey = "suspicionDecayDelay",
 	})
 
+	--[[ Steal Suspicion Bonus: disabled while onCrimeWitnessed is commented out.
 	detection:createSlider({
 		label = "Steal Suspicion Bonus",
 		description = "Suspicion spike (as % of the detection bar) added to a witness when the player steals and has not yet been detected. Vanilla crime consequences are suppressed in that case. 50 = half the bar.",
@@ -186,7 +193,9 @@ local function registerModConfig()
 		max = 100,
 		step = 5,
 		configKey = "stealSuspicionBonus",
-	})
+	}) ]]
+
+	detection:createCategory({ label = "Display" })
 
 	detection:createSlider({
 		label = "Bar Display Range",
@@ -198,7 +207,7 @@ local function registerModConfig()
 	})
 
 	detection:createSlider({
-		label = "Suspicion Marker Min Size",
+		label = "Marker Min Size",
 		description = "Size of the warning marker (in game units) at minimum suspicion.",
 		min = 5,
 		max = 100,
@@ -207,12 +216,118 @@ local function registerModConfig()
 	})
 
 	detection:createSlider({
-		label = "Suspicion Marker Max Size",
+		label = "Marker Max Size",
 		description = "Size of the warning marker (in game units) at full suspicion.",
 		min = 5,
 		max = 200,
 		step = 5,
 		configKey = "markerMaxSize",
+	})
+
+	-- Sneak Strike page
+	local strike = template:createSideBarPage({
+		label = "Sneak Strike",
+		showReset = true,
+	}) --[[@as mwseMCMSideBarPage]]
+	createSidebar(strike)
+
+	strike:createYesNoButton({
+		label = "Enable Sneak Strike",
+		description = "Enable or disable the sneak strike system. When disabled, vanilla sneak attack behaviour applies.",
+		configKey = "sneakStrikeEnabled",
+	})
+
+	strike:createYesNoButton({
+		label = "Show Sneak Strike Message",
+		description = "Display a message showing the damage multiplier when landing a sneak strike.",
+		configKey = "showSneakStrikeMessage",
+	})
+
+	strike:createCategory({ label = "Damage Multipliers (per weapon type, after vanilla 4x is undone)" })
+
+	local mult = config.sneakStrikeMult
+	strike:createSlider({
+		label = "Hand to Hand",
+		description = "Sneak strike damage multiplier for Hand to Hand. Usually non-lethal — set the toggle below.",
+		min = 1, max = 10, step = 0.5, jump = 0.5, decimalPlaces = 1,
+		variable = mwse.mcm.createTableVariable({ id = "handToHand",        table = mult }),
+	})
+	strike:createSlider({
+		label = "Short Blade (1H)",
+		description = "Sneak strike damage multiplier for one-handed short blades (daggers, tanto, wakizashi).",
+		min = 1, max = 15, step = 0.5, jump = 0.5, decimalPlaces = 1,
+		variable = mwse.mcm.createTableVariable({ id = "shortBladeOneHand", table = mult }),
+	})
+	strike:createSlider({
+		label = "Long Blade (1H)",
+		description = "Sneak strike damage multiplier for one-handed long blades (saber, katana, broadsword).",
+		min = 1, max = 15, step = 0.5, jump = 0.5, decimalPlaces = 1,
+		variable = mwse.mcm.createTableVariable({ id = "longBladeOneHand",  table = mult }),
+	})
+	strike:createSlider({
+		label = "Long Blade (2H)",
+		description = "Sneak strike damage multiplier for two-handed long blades (claymore, dai-katana).",
+		min = 1, max = 15, step = 0.5, jump = 0.5, decimalPlaces = 1,
+		variable = mwse.mcm.createTableVariable({ id = "longBladeTwoClose", table = mult }),
+	})
+	strike:createSlider({
+		label = "Blunt (1H)",
+		description = "Sneak strike damage multiplier for one-handed blunt weapons. Usually non-lethal.",
+		min = 1, max = 10, step = 0.5, jump = 0.5, decimalPlaces = 1,
+		variable = mwse.mcm.createTableVariable({ id = "bluntOneHand",      table = mult }),
+	})
+	strike:createSlider({
+		label = "Blunt (2H Close)",
+		description = "Sneak strike damage multiplier for two-handed close blunt weapons (staff).",
+		min = 1, max = 10, step = 0.5, jump = 0.5, decimalPlaces = 1,
+		variable = mwse.mcm.createTableVariable({ id = "bluntTwoClose",     table = mult }),
+	})
+	strike:createSlider({
+		label = "Blunt (2H Wide)",
+		description = "Sneak strike damage multiplier for two-handed wide blunt weapons (warhammer, maul). Usually non-lethal.",
+		min = 1, max = 10, step = 0.5, jump = 0.5, decimalPlaces = 1,
+		variable = mwse.mcm.createTableVariable({ id = "bluntTwoWide",      table = mult }),
+	})
+	strike:createSlider({
+		label = "Spear",
+		description = "Sneak strike damage multiplier for spears.",
+		min = 1, max = 10, step = 0.5, jump = 0.5, decimalPlaces = 1,
+		variable = mwse.mcm.createTableVariable({ id = "spearTwoWide",      table = mult }),
+	})
+	strike:createSlider({
+		label = "Axe (1H)",
+		description = "Sneak strike damage multiplier for one-handed axes.",
+		min = 1, max = 10, step = 0.5, jump = 0.5, decimalPlaces = 1,
+		variable = mwse.mcm.createTableVariable({ id = "axeOneHand",        table = mult }),
+	})
+	strike:createSlider({
+		label = "Axe (2H)",
+		description = "Sneak strike damage multiplier for two-handed axes.",
+		min = 1, max = 10, step = 0.5, jump = 0.5, decimalPlaces = 1,
+		variable = mwse.mcm.createTableVariable({ id = "axeTwoHand",        table = mult }),
+	})
+	strike:createSlider({
+		label = "Bow",
+		description = "Sneak strike damage multiplier for bows.",
+		min = 1, max = 10, step = 0.5, jump = 0.5, decimalPlaces = 1,
+		variable = mwse.mcm.createTableVariable({ id = "marksmanBow",       table = mult }),
+	})
+	strike:createSlider({
+		label = "Crossbow",
+		description = "Sneak strike damage multiplier for crossbows.",
+		min = 1, max = 10, step = 0.5, jump = 0.5, decimalPlaces = 1,
+		variable = mwse.mcm.createTableVariable({ id = "marksmanCrossbow",  table = mult }),
+	})
+	strike:createSlider({
+		label = "Thrown",
+		description = "Sneak strike damage multiplier for thrown weapons.",
+		min = 1, max = 10, step = 0.5, jump = 0.5, decimalPlaces = 1,
+		variable = mwse.mcm.createTableVariable({ id = "marksmanThrown",    table = mult }),
+	})
+
+	strike:createCategory({ label = "Non-Lethal Knockout" })
+	strike:createInfo({
+		text = "Any weapon with a multiplier of exactly 1.0 triggers the knockout mechanic instead of dealing bonus damage: a helmet weight check is performed, and on success the target receives a fatigue dump and stops combat.",
 	})
 
 	-- Stolen items page

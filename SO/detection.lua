@@ -164,43 +164,39 @@ local function isHostileActor(actor)
 	return actor.fight >= 83 or (actor.fight >= 70 and disposition <= 25)
 end
 
+--[==[
+TODO: onCrimeWitnessed is disabled until e.block behaviour is confirmed.
+The intent is: if the witness hasn't fully detected the player (suspicion < 1.0),
+block vanilla crime consequences and apply a suspicion spike instead.
+
 --- Intercept witnessed theft per NPC.
---- If the witness already detects the player (progress at 1.0), vanilla handles it.
---- Otherwise block vanilla crime and apply a suspicion spike instead.
 ---@param e crimeWitnessedEventData
 local function onCrimeWitnessed(e)
 	log:trace("[crimeWitnessed] type=%s", tostring(e.type))
-	if e.type ~= "theft" then
-		return
-	end
-
-	local ref = e.witness -- tes3reference
+	if e.type ~= "theft" then return end
+	local ref = e.witness
 	local mob = e.witnessMobile --[[@as tes3mobileNPC|tes3mobileCreature]]
-	if not ref or not mob then
-		return
-	end
-
+	if not ref or not mob then return end
 	if mob.isPlayerDetected then
 		log:debug("[crimeWitnessed] %s already detects player: vanilla handles it", ref.id)
 		return
 	end
-
 	local actorId = ref.id
 	local bonus = config.stealSuspicionBonus / 100
 	local current = math.min((detection.suspicion[actorId] or 0) + bonus, 1.0)
 	detection.suspicion[actorId] = current
 	restartDecayTimer(actorId)
-
-	mob.isPlayerDetected = false
-	mob.isPlayerHidden = true
+	e.block = true  -- suppress vanilla crime consequences
 	log:debug("[crimeWitnessed] suppressed vanilla for %s: suspicion +%.2f -> %.2f", actorId, bonus, current)
 end
 event.register("crimeWitnessed", onCrimeWitnessed, { priority = 1000 })
+]==]
 
 --- detectSneak fires per actor per AI tick.
 --- We only record vanilla's detection state here; accumulation happens in simulate.
 ---@param e detectSneakEventData
 local function detectSneakCallback(e)
+	if not config.modEnabled then return end
 	if e.target ~= tes3.mobilePlayer then
 		return
 	end
@@ -241,7 +237,7 @@ local function detectSneakCallback(e)
 
 	if nowDetected and not previouslyDetected then
 		log:debug("Detected by %s! Progress reached 1.0.", actorId)
-		event.trigger("SA_SO_visualDetection", e)
+		event.trigger("SA_SO_detected", e)
 	end
 end
 event.register(tes3.event.detectSneak, detectSneakCallback, { priority = 1000 })
@@ -251,6 +247,7 @@ event.register(tes3.event.detectSneak, detectSneakCallback, { priority = 1000 })
 --- AI tick frequency.
 ---@param e simulateEventData
 local function onSimulate(e)
+	if not config.modEnabled then return end
 	-- Nothing to process if no actor is being tracked
 	if not next(detection.suspicion) and not next(detectionState) then
 		return
@@ -307,5 +304,32 @@ local function onSimulate(e)
 	end
 end
 event.register(tes3.event.simulate, onSimulate)
+
+--- Returns the current suspicion level (0.0–1.0) for the given actor ID.
+---@param actorId string
+---@return number
+function detection.getSuspicion(actorId)
+	return detection.suspicion[actorId] or 0
+end
+
+--- Adds suspicion to an actor, capped at 1.0. Restarts the decay delay timer.
+---@param actorId string
+---@param amount number  0.0–1.0
+function detection.addSuspicion(actorId, amount)
+	local current = math.min((detection.suspicion[actorId] or 0) + amount, 1.0)
+	detection.suspicion[actorId] = current
+	restartDecayTimer(actorId)
+end
+
+--- Clears all suspicion and tracking state for an actor immediately.
+---@param actorId string
+function detection.clearSuspicion(actorId)
+	detection.suspicion[actorId] = nil
+	detectionState[actorId] = nil
+	if decayTimers[actorId] then
+		decayTimers[actorId]:cancel()
+		decayTimers[actorId] = nil
+	end
+end
 
 return detection

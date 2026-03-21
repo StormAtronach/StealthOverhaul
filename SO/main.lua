@@ -34,9 +34,9 @@ end
 event.register(tes3.event.loaded,onLoad)
 
 --- Got caught stealing? Let's roll the dice and see what happens
---- @param e detectSneakEventData  (passed through from SA_SO_visualDetection)
+--- @param e detectSneakEventData  (passed through from SA_SO_detected)
 local function detected(e)
-
+	if not config.modEnabled then return end
 	local data = util.getData()
 	-- If there is not current crime, do nothing
 	if (data.currentCrime.size == 0) and (data.currentCrime.value == 0) then return end
@@ -115,21 +115,23 @@ local function detected(e)
 		npcCooldown[ownerName] = tes3.getSimulationTimestamp(false)
 	end
 end
-event.register("SA_SO_visualDetection", detected)
+event.register("SA_SO_detected", detected)
 
 
 --- Updating the list of stolen items
 --- @param e itemTileUpdatedEventData
 local function itemTileUpdatedCallback(e)
--- Don't do stuff in the menu, only when picking up things in the world
-if tes3ui.menuMode() then return end
-util.updateCurrentCrime()
+	if not config.modEnabled then return end
+	-- Don't do stuff in the menu, only when picking up things in the world
+	if tes3ui.menuMode() then return end
+	util.updateCurrentCrime()
 end
 event.register(tes3.event.itemTileUpdated, itemTileUpdatedCallback)
 
 -- Also update when closing menu mode. Hopefully this also fires when closing a container
 --- @param e menuExitEventData
 local function menuExitCallback(e)
-		util.updateCurrentCrime()
+	if not config.modEnabled then return end
+	util.updateCurrentCrime()
 end
 event.register(tes3.event.menuExit, menuExitCallback)
