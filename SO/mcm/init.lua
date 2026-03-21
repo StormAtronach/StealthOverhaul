@@ -243,6 +243,11 @@ local function registerModConfig()
 		configKey = "showSneakStrikeMessage",
 	})
 
+	strike:createCategory({ label = "Non-Lethal Knockout" })
+	strike:createInfo({
+		text = "Any weapon with a multiplier of exactly 1.0 triggers the knockout mechanic instead of dealing bonus damage: a helmet weight check is performed, and on success the target receives a fatigue dump and stops combat.",
+	})
+
 	strike:createCategory({ label = "Damage Multipliers (per weapon type, after vanilla 4x is undone)" })
 
 	local mult = config.sneakStrikeMult
@@ -323,11 +328,6 @@ local function registerModConfig()
 		description = "Sneak strike damage multiplier for thrown weapons.",
 		min = 1, max = 10, step = 0.5, jump = 0.5, decimalPlaces = 1,
 		variable = mwse.mcm.createTableVariable({ id = "marksmanThrown",    table = mult }),
-	})
-
-	strike:createCategory({ label = "Non-Lethal Knockout" })
-	strike:createInfo({
-		text = "Any weapon with a multiplier of exactly 1.0 triggers the knockout mechanic instead of dealing bonus damage: a helmet weight check is performed, and on success the target receives a fatigue dump and stops combat.",
 	})
 
 	-- Stolen items page
