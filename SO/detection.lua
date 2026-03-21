@@ -197,9 +197,8 @@ event.register("crimeWitnessed", onCrimeWitnessed, { priority = 1000 })
 ---@param e detectSneakEventData
 local function detectSneakCallback(e)
 	if not config.modEnabled then return end
-	if e.target ~= tes3.mobilePlayer then
-		return
-	end
+	if e.target ~= tes3.mobilePlayer then return end
+	if not tes3.mobilePlayer.isSneaking then return end
 	if e.detector.inCombat then
 		return
 	end
