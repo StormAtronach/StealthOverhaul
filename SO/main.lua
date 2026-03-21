@@ -1,13 +1,13 @@
 local config = require("StormAtronach.SO.config")
 local interop = require("StormAtronach.SO.interop")
 local util = require("StormAtronach.SO.util")
-local investigation = require("StormAtronach.SO.investigation")
-dofile("StormAtronach.SO.detection")
-dofile("StormAtronach.SO.sneakstrike")
+require("StormAtronach.SO.detection")
+require("StormAtronach.SO.sneakstrike")
+require("StormAtronach.SO.stealthbar")
 
-local log = mwse.Logger.new()
+local log = mwse.Logger.new({ moduleName = "main", level = config.logLevel })
 
-dofile("StormAtronach.SO.mcm")
+require("StormAtronach.SO.mcm")
 
 -- VARIABLES
 local guardCooldown = 0
@@ -18,7 +18,9 @@ local npcCooldown = {}
 -- AI update refresh
 ---@param e mobileActivatedEventData
 local function setAIIntervalTime(e)
+	if e.mobile and e.mobile.scanInterval then
     e.mobile.scanInterval = config.aiUpdateTime
+	end
 end
 event.register(tes3.event.mobileActivated,  setAIIntervalTime)
 
@@ -28,13 +30,13 @@ local function onLoad(e)
 	guardCooldown = 0		 -- Reset the guard cooldown
 	util.getData() 			 -- Update or create the playerData container
 	util.updateFactionList() -- Update or create the faction list
-	--timer.start({type = timer.simulate, callback = function () forceStealthCheck() end, duration = 2, iterations = -1})
 end
 event.register(tes3.event.loaded,onLoad)
 
 --- Got caught stealing? Let's roll the dice and see what happens
---- @param e detectSneakEventData
+--- @param e detectSneakEventData  (passed through from SA_SO_visualDetection)
 local function detected(e)
+
 	local data = util.getData()
 	-- If there is not current crime, do nothing
 	if (data.currentCrime.size == 0) and (data.currentCrime.value == 0) then return end
@@ -43,7 +45,7 @@ local function detected(e)
 
 	--- Guard detection stream
 	local cooldownActive = (tes3.getSimulationTimestamp(false) - guardCooldown) < (config.guardCooldownTime or 5)
-	if e.detector.object.isGuard and (not cooldownActive) and (bounty > config.bountyThreshold) then
+	if config.stolenItemsMechanic_Guard and e.detector.object.isGuard and (not cooldownActive) and (bounty > config.bountyThreshold) then
 		-- Basic score taking into account player sneak and security
 		local playerScore = math.clamp(tes3.mobilePlayer.sneak.current + tes3.mobilePlayer.security.current,0,250)
 		-- Distance term
@@ -65,7 +67,7 @@ local function detected(e)
 			elseif detectionChance < 25 then
 				tes3.messageBox("The guard is suspicious. You should get away")
 			elseif detectionChance < 50 then
-				tes3.messageBox("The guard is giving me a knowning eye. You should get away fast")
+				tes3.messageBox("The guard is giving me a knowing eye. You should get away fast")
 			elseif detectionChance < 75 then
 				tes3.messageBox("That was a close call. Run away from the guards!")
 			elseif detectionChance < 95 then
@@ -77,10 +79,10 @@ local function detected(e)
 	end
 
 -- Owner detection stream
-	local ownerName = e.detector.object.name:lower() or "none"
+	local ownerName = (e.detector.object.name or "none"):lower()
 	local isOwner   = data.currentCrime.npcs[ownerName] and true or false
 	local ownerCooldownActive = tes3.getSimulationTimestamp(false) - (npcCooldown[ownerName] or 0) < config.ownerCooldownTime
-	if isOwner and (not ownerCooldownActive) then
+	if config.stolenItemsMechanic_Owner and isOwner and (not ownerCooldownActive) then
 		-- Basic score taking into account player sneak and security
 		local playerScore 	= config.lenience*math.clamp(tes3.mobilePlayer.sneak.current + tes3.mobilePlayer.security.current,0,250)
 		-- Distance term
@@ -131,10 +133,3 @@ local function menuExitCallback(e)
 		util.updateCurrentCrime()
 end
 event.register(tes3.event.menuExit, menuExitCallback)
-
-
-
-
-
-
-

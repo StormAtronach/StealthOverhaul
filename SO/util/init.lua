@@ -1,5 +1,5 @@
 local config = require("StormAtronach.SO.config")
-local log = mwse.Logger.new()
+local log = mwse.Logger.new({ moduleName = "util", level = config.logLevel })
 local util = {}
 local factionList = {}
 
@@ -131,13 +131,12 @@ function util.checkInventoryForStolenItems()
 
     -- Scan the player's inventory for stolen items. Let's check if we have ashfall backpacks in there as well
     local inventory = {}
-    CF = tes3.isLuaModActive("CraftingFramework")
     if CF and CraftingFramework then
         inventory = CraftingFramework.CarryableContainer.getFullInventory(tes3.player)
     else
         inventory = tes3.player.object.inventory
     end
-    
+
     for _,  stack in pairs(inventory) do
 
         local item  = stack.object ---@cast item tes3item
@@ -155,25 +154,26 @@ function util.checkInventoryForStolenItems()
             end
             -- Adding items to the owners lists
             for _, owner in pairs(item.stolenList) do
-                local id = owner.id:lower()
-                if factionList[id] then
-                    auxData.factions[id] = auxData.factions[id] or { items = {}, value = 0, size = 0 }
-                    if not  auxData.factions[id].items[item.id] then
-                            auxData.factions[id].items[item.id] = {value = value, size = size, count = count}
+                local ownerId   = owner.id:lower()
+                local ownerName = (owner.name or owner.id):lower()
+                if factionList[ownerId] then
+                    auxData.factions[ownerId] = auxData.factions[ownerId] or { items = {}, value = 0, size = 0 }
+                    if not  auxData.factions[ownerId].items[item.id] then
+                            auxData.factions[ownerId].items[item.id] = {value = value, size = size, count = count}
                     else
-                            auxData.factions[id].items[item.id].count = (auxData.factions[id].items[item.id].count or 0) + count
+                            auxData.factions[ownerId].items[item.id].count = (auxData.factions[ownerId].items[item.id].count or 0) + count
                     end
-                    auxData.factions[id].value  = (auxData.factions[id].value or 0) + value*count
-                    auxData.factions[id].size   = (auxData.factions[id].size  or 0) +  size*count
+                    auxData.factions[ownerId].value  = (auxData.factions[ownerId].value or 0) + value*count
+                    auxData.factions[ownerId].size   = (auxData.factions[ownerId].size  or 0) +  size*count
                 else
-                    auxData.npcs[id] = auxData.npcs[id] or { items = {}, value = 0, size = 0}
-                    if not  auxData.npcs[id].items[item.id] then
-                            auxData.npcs[id].items[item.id] = {value = value, size = size, count = count}
+                    auxData.npcs[ownerName] = auxData.npcs[ownerName] or { items = {}, value = 0, size = 0}
+                    if not  auxData.npcs[ownerName].items[item.id] then
+                            auxData.npcs[ownerName].items[item.id] = {value = value, size = size, count = count}
                     else
-                            auxData.npcs[id].items[item.id].count = (auxData.npcs[id].items[item.id].count or 0) + count
+                            auxData.npcs[ownerName].items[item.id].count = (auxData.npcs[ownerName].items[item.id].count or 0) + count
                     end
-                    auxData.npcs[id].value      = (auxData.npcs[id].value     or 0) + value*count
-                    auxData.npcs[id].size       = (auxData.npcs[id].size      or 0) +  size*count
+                    auxData.npcs[ownerName].value = (auxData.npcs[ownerName].value or 0) + value*count
+                    auxData.npcs[ownerName].size  = (auxData.npcs[ownerName].size  or 0) +  size*count
                 end
             end
         end
@@ -186,18 +186,14 @@ function util.updateCurrentCrime()
     local data = util.getData()
     data.currentCrime.value     = auxData.value
     data.currentCrime.size      = auxData.size
-    data.currentCrime.items     = {}
     data.currentCrime.items     = table.deepcopy(auxData.items)
-    data.currentCrime.npcs      = {}
     data.currentCrime.npcs      = table.deepcopy(auxData.npcs)
-    data.currentCrime.factions  = {}
     data.currentCrime.factions  = table.deepcopy(auxData.factions)
 end
 
 --- Remove items
 ---@param items any
 function util.removeItems(items)
-    CF = tes3.isLuaModActive("CraftingFramework")
     for itemID, v in pairs(items) do
         if CF and CraftingFramework then
         CraftingFramework.CarryableContainer.removeItem({
@@ -235,7 +231,7 @@ end
 ---Removes ownership from the items
 ---@param items any
 function util.removeOwnership(items)
-    for itemID, v in pairs(items) do
+    for itemID, _ in pairs(items) do
         tes3.setItemIsStolen({item = itemID, stolen = false})
     end
 end
@@ -245,10 +241,10 @@ end
 function util.gotCaughtOwner(npcSafeHandle)
     util.updateCurrentCrime() -- Ensure current crime is updated
     local data = util.getData()
-    local npcRef = nil ---@cast npcRef tes3actor
+    ---@type tes3reference|nil
+    local npcRef = nil
     if npcSafeHandle:valid() then
-        ---@type tes3reference
-        npcRef = npcSafeHandle:getObject() 
+        npcRef = npcSafeHandle:getObject() --[[@as tes3reference]]
     else
         log:debug("Reference was not valid when it got to gotCaughtOwner")
         return
@@ -299,7 +295,7 @@ function util.gotCaughtOwner(npcSafeHandle)
             elseif e.button == 1 then
                 local playerGold = tes3.getPlayerGold()
                 if playerGold > bribeValue then
-                    tes3.payMerchant{merchant = npcRef.mobile, cost = bribeValue}
+                    tes3.payMerchant{merchant = npcRef.mobile --[[@as tes3mobileNPC]], cost = bribeValue}
                     tes3.playSound{reference = tes3.player, sound = "Item Gold Down"}
                     util.removeOwnership(npcItems.items)
                     util.updateCurrentCrime() -- Update the current crime
@@ -318,9 +314,10 @@ function util.gotCaughtOwner(npcSafeHandle)
                 tes3.triggerCrime({
                     type = tes3.crimeType.theft,
                     value = npcItems.value or 0,
-                    victim = npcRef,
+                    victim = npcRef.object --[[@as tes3npc]],
                     forceDetection = true,
                 })
+                ---@diagnostic disable-next-line: param-type-mismatch
                 if npcRef.mobile then npcRef.mobile:startCombat(tes3.mobilePlayer) end
             end
         end,})
@@ -439,12 +436,13 @@ function util.gotCaughtGuard(npcSafeHandle)
                 end
                 local guardSH = tes3.makeSafeObjectHandle(npcRef)
                 timer.start({
-                    type = timer.simulate(),
+                    type = timer.simulate,
                     duration = 0.1,
-                    callback = function() 
+                    callback = function()
                         if guardSH:valid() then
                             local guard = guardSH:getObject()
                             if guard.mobile then
+                            ---@diagnostic disable-next-line: param-type-mismatch
                             guard.mobile:startDialogue()
                             else
                             log:debug("When attempting to initiate dialogue with guard when caught, the actor mobile was not found")
@@ -496,68 +494,65 @@ function util.gotCaughtGuard(npcSafeHandle)
 
                 end
             else
+                ---@diagnostic disable-next-line: param-type-mismatch
                 npcRef.mobile:startDialogue()
             end
         end,})
 end
 
 
-util.createLineRed =  function(origin, destination, widget_name)
-    widget_name = widget_name or "raytest_debug_widget_red"
-    local root = tes3.worldController.vfxManager.worldVFXRoot
-    local line = root:getObjectByName(widget_name)
+if config.debugLines then
+    util.createLineRed = function(origin, destination, widget_name)
+        widget_name = widget_name or "raytest_debug_widget_red"
+        local root = tes3.worldController.vfxManager.worldVFXRoot
+        local line = root:getObjectByName(widget_name)
 
-    if line == nil then
-        line = tes3.loadMesh("mwse\\widgets.nif")  ---@cast line niTriShape
-            :getObjectByName("axisLines")
-            :getObjectByName("z")
-            :clone()
-        line.name = widget_name
-        root:attachChild(line, true)
+        if line == nil then
+            ---@diagnostic disable-next-line: cast-local-type
+            line = tes3.loadMesh("mwse\\widgets.nif")  ---@cast line niTriShape
+                :getObjectByName("axisLines")
+                :getObjectByName("z")
+                :clone()
+            line.name = widget_name
+            root:attachChild(line, true)
+        end
+        ---@cast line niTriShape
+        line.data.vertices[1] = origin
+        line.data.vertices[2] = destination
+        line.data.colors[1] = niPackedColor.new(255, 0, 0)
+        line.data.colors[2] = niPackedColor.new(255, 0, 0)
+        line.data:markAsChanged()
+        line.data:updateModelBound()
+        line:update()
+        line:updateEffects()
+        line:updateProperties()
     end
 
-    line.data.vertices[1] = origin
-    line.data.vertices[2] = destination
-    -- color of start position
-    line.data.colors[1] = niPackedColor.new(255, 0, 0)
-    -- color of end position
-    line.data.colors[2] = niPackedColor.new(255, 0, 0)
-    line.data:markAsChanged()
-    line.data:updateModelBound()
+    util.createLineGreen = function(origin, destination, widget_name)
+        widget_name = widget_name or "raytest_debug_widget_green"
+        local root = tes3.worldController.vfxManager.worldVFXRoot
+        local line = root:getObjectByName(widget_name) ---@cast line niTriShape
 
-    line:update()
-    line:updateEffects()
-    line:updateProperties()
-end
-
-util.createLineGreen = function(origin, destination, widget_name)
-    widget_name = widget_name or "raytest_debug_widget_green"
-    local root = tes3.worldController.vfxManager.worldVFXRoot
-
-    local line = root:getObjectByName(widget_name) ---@cast line niTriShape
-
-    if line == nil then
-
-        line = tes3.loadMesh("mwse\\widgets.nif") ---@cast line niTriShape
-            :getObjectByName("axisLines")
-            :getObjectByName("z")
-            :clone()
-        line.name = widget_name
-        root:attachChild(line, true)
+        if line == nil then
+            ---@diagnostic disable-next-line: cast-local-type
+            line = tes3.loadMesh("mwse\\widgets.nif") ---@cast line niTriShape
+                :getObjectByName("axisLines")
+                :getObjectByName("z")
+                :clone()
+            line.name = widget_name
+            root:attachChild(line, true)
+        end
+        ---@cast line niTriShape
+        line.data.vertices[1] = origin
+        line.data.vertices[2] = destination
+        line.data.colors[1] = niPackedColor.new(0, 255, 0)
+        line.data.colors[2] = niPackedColor.new(0, 255, 0)
+        line.data:markAsChanged()
+        line.data:updateModelBound()
+        line:update()
+        line:updateEffects()
+        line:updateProperties()
     end
-
-    line.data.vertices[1] = origin
-    line.data.vertices[2] = destination
-    -- color of start position
-    line.data.colors[1] = niPackedColor.new(0, 255, 0)
-    -- color of end position
-    line.data.colors[2] = niPackedColor.new(0, 255, 0)
-    line.data:markAsChanged()
-    line.data:updateModelBound()
-
-    line:update()
-    line:updateEffects()
-    line:updateProperties()
 end
 
 return util

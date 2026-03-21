@@ -1,7 +1,7 @@
-local config = require("StormAtronach.SO.config")
 local interop = require("StormAtronach.SO.interop")
 
-local log = mwse.Logger.new()
+local config = require("StormAtronach.SO.config")
+local log = mwse.Logger.new({ moduleName = "sneakstrike", level = config.logLevel })
 
 --- Set hit chance to 100 if sneak strike (From Mort's Stealth improved)
 --- @param e calcHitChanceEventData
@@ -71,7 +71,8 @@ local function attackHitCallback(e)
 			timer.delayOneFrame(
 				function() if victimSH:valid() then
 					local victim = victimSH:getObject()
-					victim.mobile:stopCombat(true)
+					local victimMobile = victim.mobile --[[@as tes3mobileActor]]
+					victimMobile:stopCombat(true)
 				else
 					log:debug("Reference got invalidated in the non-lethal stream delayOneFrame")
 				end
@@ -86,7 +87,7 @@ local function attackHitCallback(e)
 		end
 	-- Now for the lethal stream
 	elseif relevantSkill == tes3.skill.shortBlade then
-		local sneakStrikeFactor = (4 + math.clamp(2*e.mobile.sneak.current/25,0,12)) or 1
+		local sneakStrikeFactor = 4 + math.clamp(2*e.mobile.sneak.current/25,0,12)
 		e.mobile.actionData.physicalDamage = e.mobile.actionData.physicalDamage*sneakStrikeFactor
 		tes3.messageBox(string.format("Sneak attack! %s x damage",sneakStrikeFactor))
 	end
