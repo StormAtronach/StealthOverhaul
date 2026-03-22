@@ -17,6 +17,13 @@ local weaponTypeKeys = {
 	[tes3.weaponType.marksmanThrown]    = "marksmanThrown",
 }
 
+--- Ranged weapons receive a 1.5x vanilla sneak multiplier; melee receives 4x.
+local rangedWeaponKeys = {
+	marksmanBow      = true,
+	marksmanCrossbow = true,
+	marksmanThrown   = true,
+}
+
 --- Map weapon type keys to the mobile skill stat name used in the helmet check.
 local weaponSkillStats = {
 	handToHand        = "handToHand",
@@ -68,8 +75,11 @@ local function attackHitCallback(e)
 	local multiplier  = (config.sneakStrikeMult and config.sneakStrikeMult[weaponTypeKey]) or 1.0
 	local isNonLethal = multiplier == 1.0
 
-	-- Undo vanilla's 4x sneak multiplier, then apply our per-weapon multiplier
-	local baseDamage = e.mobile.actionData.physicalDamage / 4
+	-- Undo vanilla's sneak multiplier (read from GMSTs so modded values are respected)
+	local vanillaMult = rangedWeaponKeys[weaponTypeKey]
+		and tes3.findGMST(tes3.gmst.fSneakAttackRangedMult).value
+		or  tes3.findGMST(tes3.gmst.fSneakAttackMult).value
+	local baseDamage  = e.mobile.actionData.physicalDamage / vanillaMult
 	e.mobile.actionData.physicalDamage = baseDamage * multiplier
 
 	log:debug("Sneak attack [%s]: baseDamage=%.1f mult=x%.2f newDamage=%.1f nonLethal=%s",
