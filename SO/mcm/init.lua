@@ -248,84 +248,87 @@ local function registerModConfig()
 		text = "Any weapon with a multiplier of exactly 1.0 triggers the knockout mechanic instead of dealing bonus damage: a helmet weight check is performed, and on success the target receives a fatigue dump and stops combat.",
 	})
 
-	strike:createCategory({ label = "Damage Multipliers (per weapon type, after vanilla 4x is undone)" })
+	strike:createCategory({ label = "Damage Multipliers" })
+	strike:createInfo({
+		text = "Applied to base weapon damage after undoing vanilla's sneak multiplier (4x melee, 1.5x ranged). Set to 1.0 to use the knockout mechanic instead.",
+	})
 
 	local mult = config.sneakStrikeMult
 	strike:createSlider({
 		label = "Hand to Hand",
-		description = "Sneak strike damage multiplier for Hand to Hand. Usually non-lethal — set the toggle below.",
+		description = "Sneak attack multiplier for unarmed strikes. Set to 1.0 for non-lethal knockout.",
 		min = 1, max = 10, step = 0.5, jump = 0.5, decimalPlaces = 1,
 		variable = mwse.mcm.createTableVariable({ id = "handToHand",        table = mult }),
 	})
 	strike:createSlider({
-		label = "Short Blade (1H)",
-		description = "Sneak strike damage multiplier for one-handed short blades (daggers, tanto, wakizashi).",
+		label = "Short Blade — Dagger, Tanto, Wakizashi",
+		description = "Sneak attack multiplier for one-handed short blades.",
 		min = 1, max = 15, step = 0.5, jump = 0.5, decimalPlaces = 1,
 		variable = mwse.mcm.createTableVariable({ id = "shortBladeOneHand", table = mult }),
 	})
 	strike:createSlider({
-		label = "Long Blade (1H)",
-		description = "Sneak strike damage multiplier for one-handed long blades (saber, katana, broadsword).",
+		label = "Long Blade (1H) — Saber, Katana, Broadsword",
+		description = "Sneak attack multiplier for one-handed long blades.",
 		min = 1, max = 15, step = 0.5, jump = 0.5, decimalPlaces = 1,
 		variable = mwse.mcm.createTableVariable({ id = "longBladeOneHand",  table = mult }),
 	})
 	strike:createSlider({
-		label = "Long Blade (2H)",
-		description = "Sneak strike damage multiplier for two-handed long blades (claymore, dai-katana).",
+		label = "Long Blade (2H) — Claymore, Dai-Katana",
+		description = "Sneak attack multiplier for two-handed long blades.",
 		min = 1, max = 15, step = 0.5, jump = 0.5, decimalPlaces = 1,
 		variable = mwse.mcm.createTableVariable({ id = "longBladeTwoClose", table = mult }),
 	})
 	strike:createSlider({
-		label = "Blunt (1H)",
-		description = "Sneak strike damage multiplier for one-handed blunt weapons. Usually non-lethal.",
+		label = "Blunt (1H) — Club, Mace, Morning Star",
+		description = "Sneak attack multiplier for one-handed blunt weapons. Set to 1.0 for non-lethal knockout.",
 		min = 1, max = 10, step = 0.5, jump = 0.5, decimalPlaces = 1,
 		variable = mwse.mcm.createTableVariable({ id = "bluntOneHand",      table = mult }),
 	})
 	strike:createSlider({
-		label = "Blunt (2H Close)",
-		description = "Sneak strike damage multiplier for two-handed close blunt weapons (staff).",
+		label = "Blunt (2H) — Staff",
+		description = "Sneak attack multiplier for two-handed close blunt weapons.",
 		min = 1, max = 10, step = 0.5, jump = 0.5, decimalPlaces = 1,
 		variable = mwse.mcm.createTableVariable({ id = "bluntTwoClose",     table = mult }),
 	})
 	strike:createSlider({
-		label = "Blunt (2H Wide)",
-		description = "Sneak strike damage multiplier for two-handed wide blunt weapons (warhammer, maul). Usually non-lethal.",
+		label = "Blunt (2H Wide) — Warhammer, Maul",
+		description = "Sneak attack multiplier for two-handed wide blunt weapons. Set to 1.0 for non-lethal knockout.",
 		min = 1, max = 10, step = 0.5, jump = 0.5, decimalPlaces = 1,
 		variable = mwse.mcm.createTableVariable({ id = "bluntTwoWide",      table = mult }),
 	})
 	strike:createSlider({
-		label = "Spear",
-		description = "Sneak strike damage multiplier for spears.",
+		label = "Spear — Spear, Lance, Halberd",
+		description = "Sneak attack multiplier for spears.",
 		min = 1, max = 10, step = 0.5, jump = 0.5, decimalPlaces = 1,
 		variable = mwse.mcm.createTableVariable({ id = "spearTwoWide",      table = mult }),
 	})
 	strike:createSlider({
-		label = "Axe (1H)",
-		description = "Sneak strike damage multiplier for one-handed axes.",
+		label = "Axe (1H) — Axe, Hatchet",
+		description = "Sneak attack multiplier for one-handed axes.",
 		min = 1, max = 10, step = 0.5, jump = 0.5, decimalPlaces = 1,
 		variable = mwse.mcm.createTableVariable({ id = "axeOneHand",        table = mult }),
 	})
 	strike:createSlider({
-		label = "Axe (2H)",
-		description = "Sneak strike damage multiplier for two-handed axes.",
+		label = "Axe (2H) — Battle Axe, War Axe",
+		description = "Sneak attack multiplier for two-handed axes.",
 		min = 1, max = 10, step = 0.5, jump = 0.5, decimalPlaces = 1,
 		variable = mwse.mcm.createTableVariable({ id = "axeTwoHand",        table = mult }),
 	})
 	strike:createSlider({
-		label = "Bow",
-		description = "Sneak strike damage multiplier for bows.",
+		label = "Bow — Short Bow, Long Bow",
+		description = "Sneak attack multiplier for bows. Vanilla ranged sneak bonus is 1.5x (vs 4x melee).",
 		min = 1, max = 10, step = 0.5, jump = 0.5, decimalPlaces = 1,
 		variable = mwse.mcm.createTableVariable({ id = "marksmanBow",       table = mult }),
 	})
 	strike:createSlider({
 		label = "Crossbow",
-		description = "Sneak strike damage multiplier for crossbows.",
+		description = "Sneak attack multiplier for crossbows. Vanilla ranged sneak bonus is 1.5x (vs 4x melee).",
 		min = 1, max = 10, step = 0.5, jump = 0.5, decimalPlaces = 1,
 		variable = mwse.mcm.createTableVariable({ id = "marksmanCrossbow",  table = mult }),
 	})
 	strike:createSlider({
-		label = "Thrown",
-		description = "Sneak strike damage multiplier for thrown weapons.",
+		label = "Thrown — Dart, Throwing Star, Throwing Knife",
+		description = "Sneak attack multiplier for thrown weapons. Vanilla ranged sneak bonus is 1.5x (vs 4x melee).",
 		min = 1, max = 10, step = 0.5, jump = 0.5, decimalPlaces = 1,
 		variable = mwse.mcm.createTableVariable({ id = "marksmanThrown",    table = mult }),
 	})
