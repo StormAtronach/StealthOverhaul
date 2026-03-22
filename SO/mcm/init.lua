@@ -285,7 +285,7 @@ local function registerModConfig()
 		variable = mwse.mcm.createTableVariable({ id = "bluntOneHand", table = mult }),
 	})
 	strike:createSlider({
-		label = "Blunt (2H): Staff",
+		label = "Blunt (2H): Warhammer, Maul",
 		description = "Sneak attack multiplier for two-handed close blunt weapons.",
 		min = 1,
 		max = 10,
@@ -295,7 +295,7 @@ local function registerModConfig()
 		variable = mwse.mcm.createTableVariable({ id = "bluntTwoClose", table = mult }),
 	})
 	strike:createSlider({
-		label = "Blunt (2H Wide): Warhammer, Maul",
+		label = "Blunt (2H Wide): Staff",
 		description = "Sneak attack multiplier for two-handed wide blunt weapons. Set to 1.0 for non-lethal knockout.",
 		min = 1,
 		max = 10,
