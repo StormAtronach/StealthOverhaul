@@ -92,8 +92,8 @@ end
 local displayState = {}
 
 -- Exponential smoothing coefficients (per-second; higher = faster approach).
--- k=2 rising: ~86% of target reached per second — smooth build-up.
--- k=4 falling: ~98% of target reached per second — snappy drop.
+-- k=2 rising: ~86% of target reached per second - smooth build-up.
+-- k=4 falling: ~98% of target reached per second - snappy drop.
 local SMOOTH_RISE = 2
 local SMOOTH_FALL = 4
 
@@ -166,7 +166,7 @@ local function getOrCreateBar(actorId)
 		existing:destroy()
 	end
 
-	-- One HelpLayerMenu per actor — positioned each frame via absolutePosAlignX/Y.
+	-- One HelpLayerMenu per actor - positioned each frame via absolutePosAlignX/Y.
 	-- The menu is slightly larger than the fill so there's a dark background border.
 	local menuW = BAR_WIDTH + 4
 	local menuH = BAR_HEIGHT + 4
@@ -201,7 +201,7 @@ end
 
 local function destroyAllBars()
 	-- The engine destroys all UI elements during loading, so we must not call
-	-- destroy() here — doing so crashes on an already-freed pointer.
+	-- destroy() here - doing so crashes on an already-freed pointer.
 	-- Just drop our references; the engine handles cleanup.
 	barPool = {}
 	displayState = {}
@@ -220,7 +220,9 @@ local function onSimulate(e)
 	for _, entry in pairs(markerPool) do
 		entry.node.appCulled = true
 	end
-	if not config.modEnabled then return end
+	if not config.modEnabled then
+		return
+	end
 
 	if tes3ui.menuMode() then
 		return

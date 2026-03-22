@@ -137,7 +137,7 @@ local function registerModConfig()
 
 	detection:createSlider({
 		label = "Detection Rate Floor",
-		description = "Minimum detection rate within NPC detection range. Prevents true invisibility — there is always some risk. Default 0.03.",
+		description = "Minimum detection rate within NPC detection range. Prevents true invisibility:there is always some risk. Default 0.03.",
 		min = 0.0,
 		max = 0.2,
 		step = 0.01,
@@ -261,61 +261,61 @@ local function registerModConfig()
 		variable = mwse.mcm.createTableVariable({ id = "handToHand",        table = mult }),
 	})
 	strike:createSlider({
-		label = "Short Blade — Dagger, Tanto, Wakizashi",
+		label = "Short Blade:Dagger, Tanto, Wakizashi",
 		description = "Sneak attack multiplier for one-handed short blades.",
 		min = 1, max = 15, step = 0.5, jump = 0.5, decimalPlaces = 1,
 		variable = mwse.mcm.createTableVariable({ id = "shortBladeOneHand", table = mult }),
 	})
 	strike:createSlider({
-		label = "Long Blade (1H) — Saber, Katana, Broadsword",
+		label = "Long Blade (1H):Saber, Katana, Broadsword",
 		description = "Sneak attack multiplier for one-handed long blades.",
 		min = 1, max = 15, step = 0.5, jump = 0.5, decimalPlaces = 1,
 		variable = mwse.mcm.createTableVariable({ id = "longBladeOneHand",  table = mult }),
 	})
 	strike:createSlider({
-		label = "Long Blade (2H) — Claymore, Dai-Katana",
+		label = "Long Blade (2H):Claymore, Dai-Katana",
 		description = "Sneak attack multiplier for two-handed long blades.",
 		min = 1, max = 15, step = 0.5, jump = 0.5, decimalPlaces = 1,
 		variable = mwse.mcm.createTableVariable({ id = "longBladeTwoClose", table = mult }),
 	})
 	strike:createSlider({
-		label = "Blunt (1H) — Club, Mace, Morning Star",
+		label = "Blunt (1H):Club, Mace, Morning Star",
 		description = "Sneak attack multiplier for one-handed blunt weapons. Set to 1.0 for non-lethal knockout.",
 		min = 1, max = 10, step = 0.5, jump = 0.5, decimalPlaces = 1,
 		variable = mwse.mcm.createTableVariable({ id = "bluntOneHand",      table = mult }),
 	})
 	strike:createSlider({
-		label = "Blunt (2H) — Staff",
+		label = "Blunt (2H):Staff",
 		description = "Sneak attack multiplier for two-handed close blunt weapons.",
 		min = 1, max = 10, step = 0.5, jump = 0.5, decimalPlaces = 1,
 		variable = mwse.mcm.createTableVariable({ id = "bluntTwoClose",     table = mult }),
 	})
 	strike:createSlider({
-		label = "Blunt (2H Wide) — Warhammer, Maul",
+		label = "Blunt (2H Wide):Warhammer, Maul",
 		description = "Sneak attack multiplier for two-handed wide blunt weapons. Set to 1.0 for non-lethal knockout.",
 		min = 1, max = 10, step = 0.5, jump = 0.5, decimalPlaces = 1,
 		variable = mwse.mcm.createTableVariable({ id = "bluntTwoWide",      table = mult }),
 	})
 	strike:createSlider({
-		label = "Spear — Spear, Lance, Halberd",
+		label = "Spear:Spear, Lance, Halberd",
 		description = "Sneak attack multiplier for spears.",
 		min = 1, max = 10, step = 0.5, jump = 0.5, decimalPlaces = 1,
 		variable = mwse.mcm.createTableVariable({ id = "spearTwoWide",      table = mult }),
 	})
 	strike:createSlider({
-		label = "Axe (1H) — Axe, Hatchet",
+		label = "Axe (1H):Axe, Hatchet",
 		description = "Sneak attack multiplier for one-handed axes.",
 		min = 1, max = 10, step = 0.5, jump = 0.5, decimalPlaces = 1,
 		variable = mwse.mcm.createTableVariable({ id = "axeOneHand",        table = mult }),
 	})
 	strike:createSlider({
-		label = "Axe (2H) — Battle Axe, War Axe",
+		label = "Axe (2H):Battle Axe, War Axe",
 		description = "Sneak attack multiplier for two-handed axes.",
 		min = 1, max = 10, step = 0.5, jump = 0.5, decimalPlaces = 1,
 		variable = mwse.mcm.createTableVariable({ id = "axeTwoHand",        table = mult }),
 	})
 	strike:createSlider({
-		label = "Bow — Short Bow, Long Bow",
+		label = "Bow:Short Bow, Long Bow",
 		description = "Sneak attack multiplier for bows. Vanilla ranged sneak bonus is 1.5x (vs 4x melee).",
 		min = 1, max = 10, step = 0.5, jump = 0.5, decimalPlaces = 1,
 		variable = mwse.mcm.createTableVariable({ id = "marksmanBow",       table = mult }),
@@ -327,7 +327,7 @@ local function registerModConfig()
 		variable = mwse.mcm.createTableVariable({ id = "marksmanCrossbow",  table = mult }),
 	})
 	strike:createSlider({
-		label = "Thrown — Dart, Throwing Star, Throwing Knife",
+		label = "Thrown:Dart, Throwing Star, Throwing Knife",
 		description = "Sneak attack multiplier for thrown weapons. Vanilla ranged sneak bonus is 1.5x (vs 4x melee).",
 		min = 1, max = 10, step = 0.5, jump = 0.5, decimalPlaces = 1,
 		variable = mwse.mcm.createTableVariable({ id = "marksmanThrown",    table = mult }),
