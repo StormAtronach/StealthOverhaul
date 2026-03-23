@@ -19,8 +19,8 @@ local decayTimers = {}
 local sneakChanceLogTime = {}
 
 -- Light mechanic: interior light sources and whether the player is currently inside one.
-local lightSources   = {}  -- { ref = tes3reference, radius = number }
-local playerInLight  = false
+local lightSources = {} -- { ref = tes3reference, radius = number }
+local playerInLight = false
 local lightCheckTimer = nil
 
 -- Sneak transition tracking: used to detect when the player enters sneak mode.
@@ -46,7 +46,9 @@ end
 ---@param cell tes3cell
 local function scanCellLights(cell)
 	lightSources = {}
-	if not cell or not cell.isInterior then return end
+	if not cell or not cell.isInterior then
+		return
+	end
 	for ref in cell:iterateReferences(tes3.objectType.light) do
 		local light = ref.object --[[@as tes3light]]
 		if not ref.disabled and light.radius and light.radius > 0 then
@@ -58,7 +60,9 @@ end
 
 --- Check every 0.5s whether the player is within any cached light's radius.
 local function checkPlayerLight()
-	if not config.lightMechanicEnabled then return end
+	if not config.lightMechanicEnabled then
+		return
+	end
 	local playerPos = tes3.player.position
 	playerInLight = false
 	for _, ls in ipairs(lightSources) do
@@ -82,12 +86,7 @@ local function onCellChanged(e)
 	end
 	scanCellLights(e.cell)
 	if #lightSources > 0 then
-		lightCheckTimer = timer.start({
-			type = timer.simulate,
-			duration = 0.5,
-			iterations = -1,
-			callback = checkPlayerLight,
-		})
+		lightCheckTimer = timer.start({ type = timer.simulate, duration = 0.5, iterations = -1, callback = checkPlayerLight })
 	end
 end
 event.register(tes3.event.cellChanged, onCellChanged)
@@ -122,40 +121,42 @@ local function computeDetectionRate(detector, distance, actorId)
 	local player = tes3.mobilePlayer
 
 	-- Effective detection range shrinks with sneak skill
-	local sneakReduction  = config.maxReduce * (player.sneak.current / 100) ^ config.sneakPow
-	local effectiveRange  = config.baseRange * (1 - sneakReduction / 100)
+	local sneakReduction = config.maxReduce * (player.sneak.current / 100) ^ config.sneakPow
+	local effectiveRange = config.baseRange * (1 - sneakReduction / 100)
 
 	-- Distance factor: squared falloff, reaches 0 at effectiveRange
-	local distanceFactor  = math.max(0, 1 - distance / effectiveRange) ^ config.distPow
+	local distanceFactor = math.max(0, 1 - distance / effectiveRange) ^ config.distPow
 
 	-- Angle factor: continuous from 0.25 (directly behind NPC) to 1.0 (face-on)
 	-- dot = 1 when player is in front, -1 when behind
-	local toPlayer        = (tes3.player.position - detector.reference.position):normalized()
-	local dot             = detector.reference.forwardDirection:dot(toPlayer)
-	local angleFactor     = 0.25 + 0.75 * (1 + dot) / 2
+	local toPlayer = (tes3.player.position - detector.reference.position):normalized()
+	local dot = detector.reference.forwardDirection:dot(toPlayer)
+	local angleFactor = 0.25 + 0.75 * (1 + dot) / 2
 
-	local rawRate         = distanceFactor * angleFactor
+	local rawRate = distanceFactor * angleFactor
 
 	-- Modifiers
-	local chameleon       = tes3.getEffectMagnitude({ reference = tes3.player, effect = tes3.effect.chameleon }) or 0
-	local standStillMult  = player.velocity:length() < 5 and 0.8 or 1.0
-	local lightFactor     = (config.lightMechanicEnabled and playerInLight) and config.lightRateMult or 1.0
-	local shoeFactor      = 1 + player:getBootsWeight() / 50
+	local chameleon = tes3.mobilePlayer.chameleon or 0
+	local standStillMult = player.velocity:length() < 5 and 0.8 or 1.0
+	local lightFactor = (config.lightMechanicEnabled and playerInLight) and config.lightRateMult or 1.0
+	local shoeFactor = 1 + player:getBootsWeight() / 50
 
-	local modifiedRate    = rawRate * standStillMult * lightFactor * shoeFactor
+	local modifiedRate = rawRate * standStillMult * lightFactor * shoeFactor
 
-	-- Clamp to [detFloor, detCap], then apply chameleon (can reduce below floor)
-	local rate            = math.clamp(modifiedRate, config.detFloor, config.detCap)
-	rate                  = rate * (1 - chameleon / 100)
+	-- Add the chameleon factor and clamp
+	local rate = math.clamp(modifiedRate * (1 - chameleon / 100), config.detFloor, config.detCap)
+
+	if tes3.mobilePlayer.invisibility > 0 then rate = config.detFloor end
 
 	local now = os.clock()
 	if (now - (sneakChanceLogTime[actorId] or 0)) >= 0.25 then
 		sneakChanceLogTime[actorId] = now
-		log:trace("[rate:%s] dist=%.0f effRange=%.0f distFactor=%.3f dot=%.2f angleFactor=%.2f rawRate=%.3f",
-			actorId, distance, effectiveRange, distanceFactor, dot, angleFactor, rawRate)
-		log:trace("[rate:%s] standStill=%.2f light=%.2f shoe=%.2f chameleon=%.0f => rate=%.4f/s (fillTime=%.1fs) | sneakXP: %.2f",
-			actorId, standStillMult, lightFactor, shoeFactor, chameleon, rate, config.fillTime,
-			tes3.mobilePlayer.skillProgress[tes3.skill.sneak])
+		log:trace("[rate:%s] dist=%.0f effRange=%.0f distFactor=%.3f dot=%.2f angleFactor=%.2f rawRate=%.3f", actorId,
+		          distance, effectiveRange, distanceFactor, dot, angleFactor, rawRate)
+		log:trace(
+		"[rate:%s] standStill=%.2f light=%.2f shoe=%.2f chameleon=%.0f => rate=%.4f/s (fillTime=%.1fs) | sneakXP: %.2f",
+		actorId, standStillMult, lightFactor, shoeFactor, chameleon, rate, config.fillTime,
+		tes3.mobilePlayer.skillProgress[tes3.skill.sneak])
 	end
 	return rate
 end
@@ -191,10 +192,8 @@ event.register("crimeWitnessed", onCrimeWitnessed, { priority = 1000 })
 ---@param e skillRaisedEventData
 local function onSkillRaised(e)
 	if e.skill == tes3.skill.sneak then
-		log:debug("[sneak] level up! new level: %d | xp progress reset to: %.2f (source: %s)",
-			e.level,
-			tes3.mobilePlayer.skillProgress[tes3.skill.sneak + 1],
-			tostring(e.source))
+		log:debug("[sneak] level up! new level: %d | xp progress reset to: %.2f (source: %s)", e.level,
+		          tes3.mobilePlayer.skillProgress[tes3.skill.sneak + 1], tostring(e.source))
 	end
 end
 event.register(tes3.event.skillRaised, onSkillRaised)
@@ -203,9 +202,15 @@ event.register(tes3.event.skillRaised, onSkillRaised)
 --- We only record vanilla's detection state here; accumulation happens in simulate.
 ---@param e detectSneakEventData
 local function detectSneakCallback(e)
-	if not config.modEnabled then return end
-	if e.target ~= tes3.mobilePlayer then return end
-	if not tes3.mobilePlayer.isSneaking then return end
+	if not config.modEnabled then
+		return
+	end
+	if e.target ~= tes3.mobilePlayer then
+		return
+	end
+	if not tes3.mobilePlayer.isSneaking then
+		return
+	end
 	if e.detector.inCombat then
 		return
 	end
@@ -223,15 +228,15 @@ local function detectSneakCallback(e)
 
 	-- Compute detection rate and store for the simulate loop
 	local distance = detector.reference.position:distance(tes3.player.position)
-	local rate     = computeDetectionRate(detector, distance, actorId)
+	local rate = computeDetectionRate(detector, distance, actorId)
 	detectionState[actorId] = { rate = rate, lastUpdate = os.clock() }
 	log:trace("[detectSneak] %s distance=%.0f rate=%.4f/s", actorId, distance, rate)
 
 	-- Override vanilla with our accumulator-based result
 	local nowDetected = (detection.suspicion[actorId] or 0) >= 1.0
-	e.isDetected      = nowDetected
+	e.isDetected = nowDetected
 	detector.isPlayerDetected = nowDetected
-	detector.isPlayerHidden   = not nowDetected
+	detector.isPlayerHidden = not nowDetected
 
 	if nowDetected and not previouslyDetected then
 		log:debug("Detected by %s! Progress reached 1.0.", actorId)
@@ -245,7 +250,9 @@ event.register(tes3.event.detectSneak, detectSneakCallback, { priority = 1000 })
 --- AI tick frequency.
 ---@param e simulateEventData
 local function onSimulate(e)
-	if not config.modEnabled then return end
+	if not config.modEnabled then
+		return
+	end
 
 	-- On sneak start: initialize already-detected nearby actors to full suspicion
 	-- so the player can't escape detection by simply pressing sneak.
@@ -254,7 +261,7 @@ local function onSimulate(e)
 		local nearby = tes3.findActorsInProximity({ reference = tes3.player, range = config.baseRange })
 		if nearby then
 			for _, ref in ipairs(nearby) do
-				local r   = ref --[[@as tes3reference]]
+				local r = ref --[[@as tes3reference]]
 				local mob = r.mobile --[[@as tes3mobileActor]]
 				if mob and mob ~= tes3.mobilePlayer and mob.isPlayerDetected then
 					detection.suspicion[r.id] = 1.0
@@ -292,11 +299,11 @@ local function onSimulate(e)
 
 		-- Actor is active if a detectSneak tick arrived recently; stale = left range
 		local isStale = not state or (os.clock() - state.lastUpdate) >= staleThreshold
-		local active  = not isStale
+		local active = not isStale
 
 		if active then
-			local rate   = state.rate or config.detFloor
-			local delta  = rate * dt / config.fillTime
+			local rate = state.rate or config.detFloor
+			local delta = rate * dt / config.fillTime
 			current = math.min(1.0, current + delta)
 			restartDecayTimer(actorId)
 			log:trace("Suspicion ↑ for %s: %.3f (+%.4f/frame) rate=%.4f/s", actorId, current, delta, rate)
