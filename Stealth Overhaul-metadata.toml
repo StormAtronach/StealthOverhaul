@@ -1,0 +1,9 @@
+[package]
+name = "Stealth Overhaul"
+version = "1.4.0"
+authors = ["Storm Atronach"]
+homepage = "https://next.nexusmods.com/profile/StormAtronach0"
+description = "A stealth mechanics overhaul for Morrowind."
+
+[tools.mwse]
+lua-mod = "StormAtronach.SO"
