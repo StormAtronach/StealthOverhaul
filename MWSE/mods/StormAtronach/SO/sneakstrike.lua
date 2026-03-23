@@ -87,9 +87,7 @@ local function attackHitCallback(e)
 	local multiplier = (config.sneakStrikeMult and config.sneakStrikeMult[weaponTypeKey]) or 1.0
 	local isNonLethal = multiplier == 1.0
 
-	-- Undo vanilla's sneak multiplier (read from GMSTs so modded values are respected)
-	local vanillaMult = rangedWeaponKeys[weaponTypeKey] and tes3.findGMST(tes3.gmst.fSneakAttackRangedMult).value or
-	                    tes3.findGMST(tes3.gmst.fSneakAttackMult).value
+	local vanillaMult = rangedWeaponKeys[weaponTypeKey] and 1.5 or 4.0
 	local baseDamage = e.mobile.actionData.physicalDamage / vanillaMult
 	e.mobile.actionData.physicalDamage = baseDamage * multiplier
 

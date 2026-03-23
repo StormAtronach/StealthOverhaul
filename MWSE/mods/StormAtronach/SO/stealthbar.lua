@@ -3,6 +3,64 @@ local detection = require("StormAtronach.SO.detection")
 
 local log = mwse.Logger.new({ moduleName = "stealthbar", level = config.logLevel })
 
+-- Crosshair color: UI image element created inside MenuMulti, colored each frame
+local crosshairElement = nil
+local crosshairParent = nil
+
+---@param r number
+---@param g number
+---@param b number
+local function setCrosshairColor(r, g, b)
+	if not crosshairElement then
+		log:debug("[crosshair] setCrosshairColor called but element is nil")
+		return
+	end
+	if r == 1 and g == 1 and b == 1 then
+		crosshairElement.visible = false
+	else
+		log:debug("[crosshair] setting color %.2f %.2f %.2f", r, g, b)
+		crosshairElement.color = { r, g, b }
+		crosshairElement.visible = true
+	end
+end
+
+local function createCrosshair()
+	if tes3ui.menuMode() then return end
+	if crosshairParent == nil then
+		log:debug("[crosshair] no parent found, aborting crosshair creation")
+		return
+	end
+
+	local existing = crosshairParent:findChild("SA_SO_crosshair_block")
+	if existing then
+		existing:destroy()
+	end
+
+	local block = crosshairParent:createBlock{ id = "SA_SO_crosshair_block" }
+	block.layoutOriginFractionX = 0.5
+	block.layoutOriginFractionY = 0.5
+	block.autoWidth = true
+	block.autoHeight = true
+	block.consumeMouseEvents = false
+
+	local tex = "textures/sneak_eye.dds"
+	crosshairElement = block:createImage({ path = tex })
+	crosshairElement.visible = false
+	crosshairElement.consumeMouseEvents = false
+
+	crosshairParent:updateLayout()
+	log:debug("[crosshair] UI overlay created in MenuMulti (%s)", tex)
+end
+
+local function onMenuMultiActivated(e)
+	if not e.newlyCreated then
+		return
+	end
+	crosshairParent = e.element
+	createCrosshair()
+end
+event.register("uiActivated", onMenuMultiActivated, { filter = "MenuMulti" })
+
 local BAR_WIDTH = 50
 local BAR_HEIGHT = 8
 -- How far above the projected head point to draw the bar (in screen fraction)
@@ -206,7 +264,9 @@ local function destroyAllBars()
 	barPool = {}
 	displayState = {}
 	markerPool = {}
+	crosshairElement = nil
 	log:debug("Bar and marker pools reset on load")
+	createCrosshair()
 end
 
 event.register(tes3.event.loaded, destroyAllBars)
@@ -221,7 +281,23 @@ local function onSimulate(e)
 		entry.node.appCulled = true
 	end
 	if not config.modEnabled then
+		setCrosshairColor(1, 1, 1)
 		return
+	end
+
+	-- Crosshair color: green→red based on max suspicion
+	if config.crosshairColorEnabled and tes3.mobilePlayer.isSneaking then
+		local maxSuspicion = 0
+		for _, s in pairs(detection.suspicion) do
+			if s > maxSuspicion then
+				maxSuspicion = s
+			end
+		end
+		local r = math.min(maxSuspicion * 2, 1)
+		local g = math.min((1 - maxSuspicion) * 2, 1)
+		setCrosshairColor(r, g, 0)
+	else
+		setCrosshairColor(1, 1, 1)
 	end
 
 	if tes3ui.menuMode() then
@@ -286,7 +362,7 @@ local function onSimulate(e)
 		end
 
 		-- === 2-D HUD bar ===
-		if suspicionValue <= 0 then
+		if not config.fillbarEnabled or suspicionValue <= 0 then
 			goto continue
 		end
 

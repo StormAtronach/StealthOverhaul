@@ -180,6 +180,18 @@ local function registerModConfig()
 
 	detection:createCategory({ label = "Display" })
 
+	detection:createYesNoButton({
+		label = "Crosshair Color",
+		description = "While sneaking, tints the crosshair from green (no suspicion) through yellow to red (fully detected). Reflects the highest suspicion level among all nearby actors.",
+		configKey = "crosshairColorEnabled",
+	})
+
+	detection:createYesNoButton({
+		label = "Suspicion Fillbars",
+		description = "Show a suspicion fillbar above each nearby NPC while sneaking. Disabled by default.",
+		configKey = "fillbarEnabled",
+	})
+
 	detection:createSlider({
 		label = "Bar Display Range",
 		description = "Distance in game units within which suspicion bars and markers are shown. Only applies while sneaking.",

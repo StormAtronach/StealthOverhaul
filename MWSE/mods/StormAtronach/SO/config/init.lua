@@ -30,6 +30,8 @@ local default = {
 	suspicionDecayDelay = 5,    -- seconds before decay begins after last increase
 	stealSuspicionBonus = 50,   -- bonus added on undetected theft (0–100 maps to 0.0–1.0 of progress)
 	-- Stealth bar / marker display
+	crosshairColorEnabled = true,
+	fillbarEnabled = false,
 	barRange = 2000,     -- bars/markers only shown within this distance (units)
 	markerMinSize = 20,  -- marker size at 1% suspicion (game units)
 	markerMaxSize = 60,  -- marker size at 100% suspicion (game units)
