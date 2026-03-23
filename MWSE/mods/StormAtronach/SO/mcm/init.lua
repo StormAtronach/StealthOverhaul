@@ -198,6 +198,12 @@ local function registerModConfig()
 		configKey = "fillbarEnabled",
 	})
 
+	hud:createYesNoButton({
+		label = "Suspicion Markers",
+		description = "Show a 3D marker above each nearby NPC while sneaking, scaling from green to red with suspicion level.",
+		configKey = "markerEnabled",
+	})
+
 	hud:createSlider({
 		label = "Display Range (units)",
 		description = "Distance in game units within which suspicion bars and markers are shown. Only applies while sneaking.",
@@ -297,15 +303,16 @@ local function registerModConfig()
 	createSidebar(weapons)
 
 	weapons:createInfo({
-		text = "Per-weapon sneak strike multipliers, applied after undoing vanilla's sneak bonus (4x melee, 1.5x ranged). Set to 1.0 to trigger the non-lethal knockout mechanic instead.",
+		text = "WARNING - Setting any multiplier to exactly 1.0 disables bonus damage and triggers the non-lethal knockout mechanic instead: a helmet weight check is performed, and on success the target receives a fatigue dump and stops combat.\n\nMultipliers are applied after undoing vanilla's sneak bonus (4x melee, 1.5x ranged).",
 	})
 
 	local mult = config.sneakStrikeMult
+	local nonLethalNote = "Set to 1.0 to trigger the non-lethal knockout mechanic instead of dealing bonus damage."
 
 	weapons:createCategory({ label = "Unarmed" })
 	weapons:createSlider({
 		label = "Hand to Hand",
-		description = "Sneak attack multiplier for unarmed strikes. Set to 1.0 for non-lethal knockout.",
+		description = nonLethalNote,
 		min = 1, max = 16, step = 0.5, jump = 0.5, decimalPlaces = 1,
 		variable = mwse.mcm.createTableVariable({ id = "handToHand", table = mult }),
 	})
@@ -313,16 +320,19 @@ local function registerModConfig()
 	weapons:createCategory({ label = "Blades" })
 	weapons:createSlider({
 		label = "Short Blade: Dagger, Tanto, Wakizashi",
+		description = nonLethalNote,
 		min = 1, max = 16, step = 0.5, jump = 0.5, decimalPlaces = 1,
 		variable = mwse.mcm.createTableVariable({ id = "shortBladeOneHand", table = mult }),
 	})
 	weapons:createSlider({
 		label = "Long Blade (1H): Saber, Katana, Broadsword",
+		description = nonLethalNote,
 		min = 1, max = 16, step = 0.5, jump = 0.5, decimalPlaces = 1,
 		variable = mwse.mcm.createTableVariable({ id = "longBladeOneHand", table = mult }),
 	})
 	weapons:createSlider({
 		label = "Long Blade (2H): Claymore, Dai-Katana",
+		description = nonLethalNote,
 		min = 1, max = 16, step = 0.5, jump = 0.5, decimalPlaces = 1,
 		variable = mwse.mcm.createTableVariable({ id = "longBladeTwoClose", table = mult }),
 	})
@@ -330,18 +340,19 @@ local function registerModConfig()
 	weapons:createCategory({ label = "Blunt" })
 	weapons:createSlider({
 		label = "Blunt (1H): Club, Mace, Morning Star",
-		description = "Set to 1.0 for non-lethal knockout.",
+		description = nonLethalNote,
 		min = 1, max = 16, step = 0.5, jump = 0.5, decimalPlaces = 1,
 		variable = mwse.mcm.createTableVariable({ id = "bluntOneHand", table = mult }),
 	})
 	weapons:createSlider({
 		label = "Blunt (2H): Warhammer, Maul",
+		description = nonLethalNote,
 		min = 1, max = 16, step = 0.5, jump = 0.5, decimalPlaces = 1,
 		variable = mwse.mcm.createTableVariable({ id = "bluntTwoClose", table = mult }),
 	})
 	weapons:createSlider({
 		label = "Blunt (2H Wide): Staff",
-		description = "Set to 1.0 for non-lethal knockout.",
+		description = nonLethalNote,
 		min = 1, max = 16, step = 0.5, jump = 0.5, decimalPlaces = 1,
 		variable = mwse.mcm.createTableVariable({ id = "bluntTwoWide", table = mult }),
 	})
@@ -349,16 +360,19 @@ local function registerModConfig()
 	weapons:createCategory({ label = "Other Melee" })
 	weapons:createSlider({
 		label = "Spear: Spear, Lance, Halberd",
+		description = nonLethalNote,
 		min = 1, max = 16, step = 0.5, jump = 0.5, decimalPlaces = 1,
 		variable = mwse.mcm.createTableVariable({ id = "spearTwoWide", table = mult }),
 	})
 	weapons:createSlider({
 		label = "Axe (1H): Axe, Hatchet",
+		description = nonLethalNote,
 		min = 1, max = 16, step = 0.5, jump = 0.5, decimalPlaces = 1,
 		variable = mwse.mcm.createTableVariable({ id = "axeOneHand", table = mult }),
 	})
 	weapons:createSlider({
 		label = "Axe (2H): Battle Axe, War Axe",
+		description = nonLethalNote,
 		min = 1, max = 16, step = 0.5, jump = 0.5, decimalPlaces = 1,
 		variable = mwse.mcm.createTableVariable({ id = "axeTwoHand", table = mult }),
 	})
@@ -366,16 +380,19 @@ local function registerModConfig()
 	weapons:createCategory({ label = "Ranged (vanilla base: 1.5x)" })
 	weapons:createSlider({
 		label = "Bow: Short Bow, Long Bow",
+		description = nonLethalNote,
 		min = 1, max = 16, step = 0.5, jump = 0.5, decimalPlaces = 1,
 		variable = mwse.mcm.createTableVariable({ id = "marksmanBow", table = mult }),
 	})
 	weapons:createSlider({
 		label = "Crossbow",
+		description = nonLethalNote,
 		min = 1, max = 16, step = 0.5, jump = 0.5, decimalPlaces = 1,
 		variable = mwse.mcm.createTableVariable({ id = "marksmanCrossbow", table = mult }),
 	})
 	weapons:createSlider({
 		label = "Thrown: Dart, Throwing Star, Throwing Knife",
+		description = nonLethalNote,
 		min = 1, max = 16, step = 0.5, jump = 0.5, decimalPlaces = 1,
 		variable = mwse.mcm.createTableVariable({ id = "marksmanThrown", table = mult }),
 	})

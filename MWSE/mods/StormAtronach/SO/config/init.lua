@@ -32,6 +32,7 @@ local default = {
 	-- Stealth bar / marker display
 	crosshairColorEnabled = true,
 	fillbarEnabled = false,
+	markerEnabled = false,
 	barRange = 2000, -- bars/markers only shown within this distance (units)
 	markerMinSize = 10, -- marker size at 1% suspicion (game units)
 	markerMaxSize = 30, -- marker size at 100% suspicion (game units)

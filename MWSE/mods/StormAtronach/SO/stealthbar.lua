@@ -336,7 +336,7 @@ local function onSimulate(e)
 		-- === 3-D marker ===
 		local pct = suspicionValue -- progress is already 0.0–1.0
 		log:trace("[marker] %s pct=%.3f", actorId, pct)
-		if suspicionValue > 0 then
+		if config.markerEnabled and suspicionValue > 0 then
 			local marker = attachMarker(ref, actorId)
 			if marker then
 				marker.appCulled = false
@@ -352,7 +352,7 @@ local function onSimulate(e)
 				ref.sceneNode:update()
 			end
 		elseif markerPool[actorId] then
-			-- Suspicion gone: cull and release the node
+			-- Suspicion gone or disabled: cull and release the node
 			local entry = markerPool[actorId]
 			entry.node.appCulled = true
 			ref.sceneNode:detachChild(entry.node)
