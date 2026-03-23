@@ -1,6 +1,33 @@
 local config = require("StormAtronach.SO.config")
 local log = mwse.Logger.new({ moduleName = "sneakstrike", level = config.logLevel })
 
+--- Linearly interpolate the sneak-skill damage multiplier.
+local skillBreakpoints = { 0, 25, 50, 75, 100 }
+local skillBreakpointKeys = { "skill0", "skill25", "skill50", "skill75", "skill100" }
+
+local function getSkillMultiplier(sneakSkill)
+	local pts = config.sneakSkillMult
+	sneakSkill = math.clamp(sneakSkill, 0, 100)
+	if config.sneakSkillMultSteps then
+		-- Use the multiplier of the highest breakpoint at or below the skill level
+		local result = pts[skillBreakpointKeys[1]]
+		for i = 1, #skillBreakpoints do
+			if sneakSkill >= skillBreakpoints[i] then
+				result = pts[skillBreakpointKeys[i]]
+			end
+		end
+		return result
+	end
+	for i = 1, #skillBreakpoints - 1 do
+		local a, b = skillBreakpoints[i], skillBreakpoints[i + 1]
+		if sneakSkill <= b then
+			local t = (sneakSkill - a) / (b - a)
+			return pts[skillBreakpointKeys[i]] + t * (pts[skillBreakpointKeys[i + 1]] - pts[skillBreakpointKeys[i]])
+		end
+	end
+	return pts[skillBreakpointKeys[#skillBreakpointKeys]]
+end
+
 --- Map tes3.weaponType values to the string keys used in config tables.
 local weaponTypeKeys = {
 	[tes3.weaponType.shortBladeOneHand] = "shortBladeOneHand",
@@ -85,6 +112,10 @@ local function attackHitCallback(e)
 	end
 
 	local multiplier = (config.sneakStrikeMult and config.sneakStrikeMult[weaponTypeKey]) or 1.0
+	if config.sneakSkillMultEnabled then
+		local sneakSkill = tes3.mobilePlayer.sneak and tes3.mobilePlayer.sneak.current or 0
+		multiplier = multiplier * getSkillMultiplier(sneakSkill)
+	end
 	local isNonLethal = multiplier == 1.0
 
 	local vanillaMult = rangedWeaponKeys[weaponTypeKey] and 1.5 or 4.0

@@ -178,22 +178,28 @@ local function registerModConfig()
 		configKey = "stealSuspicionBonus",
 	}) ]]
 
-	detection:createCategory({ label = "Display" })
+	-- HUD page
+	local hud = template:createSideBarPage({ label = "HUD", showReset = true }) --[[@as mwseMCMSideBarPage]]
+	createSidebar(hud)
 
-	detection:createYesNoButton({
+	hud:createCategory({ label = "Crosshair" })
+
+	hud:createYesNoButton({
 		label = "Crosshair Color",
 		description = "While sneaking, tints the crosshair from green (no suspicion) through yellow to red (fully detected). Reflects the highest suspicion level among all nearby actors.",
 		configKey = "crosshairColorEnabled",
 	})
 
-	detection:createYesNoButton({
+	hud:createCategory({ label = "Suspicion Indicators" })
+
+	hud:createYesNoButton({
 		label = "Suspicion Fillbars",
 		description = "Show a suspicion fillbar above each nearby NPC while sneaking. Disabled by default.",
 		configKey = "fillbarEnabled",
 	})
 
-	detection:createSlider({
-		label = "Bar Display Range",
+	hud:createSlider({
+		label = "Display Range (units)",
 		description = "Distance in game units within which suspicion bars and markers are shown. Only applies while sneaking.",
 		min = 500,
 		max = 5000,
@@ -201,7 +207,9 @@ local function registerModConfig()
 		configKey = "barRange",
 	})
 
-	detection:createSlider({
+	hud:createCategory({ label = "Suspicion Marker" })
+
+	hud:createSlider({
 		label = "Marker Min Size",
 		description = "Size of the warning marker (in game units) at minimum suspicion.",
 		min = 5,
@@ -210,7 +218,7 @@ local function registerModConfig()
 		configKey = "markerMinSize",
 	})
 
-	detection:createSlider({
+	hud:createSlider({
 		label = "Marker Max Size",
 		description = "Size of the warning marker (in game units) at full suspicion.",
 		min = 5,
@@ -240,140 +248,135 @@ local function registerModConfig()
 		text = "Any weapon with a multiplier of exactly 1.0 triggers the knockout mechanic instead of dealing bonus damage: a helmet weight check is performed, and on success the target receives a fatigue dump and stops combat.",
 	})
 
-	strike:createCategory({ label = "Damage Multipliers" })
+	strike:createCategory({ label = "Sneak Skill Scaling" })
 	strike:createInfo({
-		text = "Applied to base weapon damage after undoing vanilla's sneak multiplier (4x melee, 1.5x ranged). Set to 1.0 to use the knockout mechanic instead.",
+		text = "When enabled, sneak strike damage is further multiplied by a value based on your Sneak skill level.",
+	})
+
+	strike:createYesNoButton({
+		label = "Enable Skill Scaling",
+		description = "Multiply sneak strike damage by a skill-based factor. The factor is determined by your Sneak skill and the breakpoints on this page.",
+		configKey = "sneakSkillMultEnabled",
+	})
+
+	strike:createYesNoButton({
+		label = "Step Mode",
+		description = "When enabled, uses the multiplier of the nearest lower breakpoint (e.g. Sneak 60 uses the Sneak 50 value, Oblivion style). When disabled, linearly interpolates between breakpoints.",
+		configKey = "sneakSkillMultSteps",
+	})
+
+	local skillMult = config.sneakSkillMult
+	strike:createSlider({
+		label = "Multiplier at Sneak 0",
+		min = 0.1, max = 4.0, step = 0.05, jump = 0.05, decimalPlaces = 2,
+		variable = mwse.mcm.createTableVariable({ id = "skill0", table = skillMult }),
+	})
+	strike:createSlider({
+		label = "Multiplier at Sneak 25",
+		min = 0.1, max = 4.0, step = 0.05, jump = 0.05, decimalPlaces = 2,
+		variable = mwse.mcm.createTableVariable({ id = "skill25", table = skillMult }),
+	})
+	strike:createSlider({
+		label = "Multiplier at Sneak 50",
+		min = 0.1, max = 4.0, step = 0.05, jump = 0.05, decimalPlaces = 2,
+		variable = mwse.mcm.createTableVariable({ id = "skill50", table = skillMult }),
+	})
+	strike:createSlider({
+		label = "Multiplier at Sneak 75",
+		min = 0.1, max = 4.0, step = 0.05, jump = 0.05, decimalPlaces = 2,
+		variable = mwse.mcm.createTableVariable({ id = "skill75", table = skillMult }),
+	})
+	strike:createSlider({
+		label = "Multiplier at Sneak 100",
+		min = 0.1, max = 4.0, step = 0.05, jump = 0.05, decimalPlaces = 2,
+		variable = mwse.mcm.createTableVariable({ id = "skill100", table = skillMult }),
+	})
+
+	-- Weapon Multipliers page
+	local weapons = template:createSideBarPage({ label = "Weapon Multipliers", showReset = true }) --[[@as mwseMCMSideBarPage]]
+	createSidebar(weapons)
+
+	weapons:createInfo({
+		text = "Per-weapon sneak strike multipliers, applied after undoing vanilla's sneak bonus (4x melee, 1.5x ranged). Set to 1.0 to trigger the non-lethal knockout mechanic instead.",
 	})
 
 	local mult = config.sneakStrikeMult
-	strike:createSlider({
+
+	weapons:createCategory({ label = "Unarmed" })
+	weapons:createSlider({
 		label = "Hand to Hand",
 		description = "Sneak attack multiplier for unarmed strikes. Set to 1.0 for non-lethal knockout.",
-		min = 1,
-		max = 16,
-		step = 0.5,
-		jump = 0.5,
-		decimalPlaces = 1,
+		min = 1, max = 16, step = 0.5, jump = 0.5, decimalPlaces = 1,
 		variable = mwse.mcm.createTableVariable({ id = "handToHand", table = mult }),
 	})
-	strike:createSlider({
+
+	weapons:createCategory({ label = "Blades" })
+	weapons:createSlider({
 		label = "Short Blade: Dagger, Tanto, Wakizashi",
-		description = "Sneak attack multiplier for one-handed short blades.",
-		min = 1,
-		max = 16,
-		step = 0.5,
-		jump = 0.5,
-		decimalPlaces = 1,
+		min = 1, max = 16, step = 0.5, jump = 0.5, decimalPlaces = 1,
 		variable = mwse.mcm.createTableVariable({ id = "shortBladeOneHand", table = mult }),
 	})
-	strike:createSlider({
+	weapons:createSlider({
 		label = "Long Blade (1H): Saber, Katana, Broadsword",
-		description = "Sneak attack multiplier for one-handed long blades.",
-		min = 1,
-		max = 16,
-		step = 0.5,
-		jump = 0.5,
-		decimalPlaces = 1,
+		min = 1, max = 16, step = 0.5, jump = 0.5, decimalPlaces = 1,
 		variable = mwse.mcm.createTableVariable({ id = "longBladeOneHand", table = mult }),
 	})
-	strike:createSlider({
+	weapons:createSlider({
 		label = "Long Blade (2H): Claymore, Dai-Katana",
-		description = "Sneak attack multiplier for two-handed long blades.",
-		min = 1,
-		max = 16,
-		step = 0.5,
-		jump = 0.5,
-		decimalPlaces = 1,
+		min = 1, max = 16, step = 0.5, jump = 0.5, decimalPlaces = 1,
 		variable = mwse.mcm.createTableVariable({ id = "longBladeTwoClose", table = mult }),
 	})
-	strike:createSlider({
+
+	weapons:createCategory({ label = "Blunt" })
+	weapons:createSlider({
 		label = "Blunt (1H): Club, Mace, Morning Star",
-		description = "Sneak attack multiplier for one-handed blunt weapons. Set to 1.0 for non-lethal knockout.",
-		min = 1,
-		max = 16,
-		step = 0.5,
-		jump = 0.5,
-		decimalPlaces = 1,
+		description = "Set to 1.0 for non-lethal knockout.",
+		min = 1, max = 16, step = 0.5, jump = 0.5, decimalPlaces = 1,
 		variable = mwse.mcm.createTableVariable({ id = "bluntOneHand", table = mult }),
 	})
-	strike:createSlider({
+	weapons:createSlider({
 		label = "Blunt (2H): Warhammer, Maul",
-		description = "Sneak attack multiplier for two-handed close blunt weapons.",
-		min = 1,
-		max = 16,
-		step = 0.5,
-		jump = 0.5,
-		decimalPlaces = 1,
+		min = 1, max = 16, step = 0.5, jump = 0.5, decimalPlaces = 1,
 		variable = mwse.mcm.createTableVariable({ id = "bluntTwoClose", table = mult }),
 	})
-	strike:createSlider({
+	weapons:createSlider({
 		label = "Blunt (2H Wide): Staff",
-		description = "Sneak attack multiplier for two-handed wide blunt weapons. Set to 1.0 for non-lethal knockout.",
-		min = 1,
-		max = 16,
-		step = 0.5,
-		jump = 0.5,
-		decimalPlaces = 1,
+		description = "Set to 1.0 for non-lethal knockout.",
+		min = 1, max = 16, step = 0.5, jump = 0.5, decimalPlaces = 1,
 		variable = mwse.mcm.createTableVariable({ id = "bluntTwoWide", table = mult }),
 	})
-	strike:createSlider({
+
+	weapons:createCategory({ label = "Other Melee" })
+	weapons:createSlider({
 		label = "Spear: Spear, Lance, Halberd",
-		description = "Sneak attack multiplier for spears.",
-		min = 1,
-		max = 16,
-		step = 0.5,
-		jump = 0.5,
-		decimalPlaces = 1,
+		min = 1, max = 16, step = 0.5, jump = 0.5, decimalPlaces = 1,
 		variable = mwse.mcm.createTableVariable({ id = "spearTwoWide", table = mult }),
 	})
-	strike:createSlider({
+	weapons:createSlider({
 		label = "Axe (1H): Axe, Hatchet",
-		description = "Sneak attack multiplier for one-handed axes.",
-		min = 1,
-		max = 16,
-		step = 0.5,
-		jump = 0.5,
-		decimalPlaces = 1,
+		min = 1, max = 16, step = 0.5, jump = 0.5, decimalPlaces = 1,
 		variable = mwse.mcm.createTableVariable({ id = "axeOneHand", table = mult }),
 	})
-	strike:createSlider({
+	weapons:createSlider({
 		label = "Axe (2H): Battle Axe, War Axe",
-		description = "Sneak attack multiplier for two-handed axes.",
-		min = 1,
-		max = 16,
-		step = 0.5,
-		jump = 0.5,
-		decimalPlaces = 1,
+		min = 1, max = 16, step = 0.5, jump = 0.5, decimalPlaces = 1,
 		variable = mwse.mcm.createTableVariable({ id = "axeTwoHand", table = mult }),
 	})
-	strike:createSlider({
+
+	weapons:createCategory({ label = "Ranged (vanilla base: 1.5x)" })
+	weapons:createSlider({
 		label = "Bow: Short Bow, Long Bow",
-		description = "Sneak attack multiplier for bows. Vanilla ranged sneak bonus is 1.5x (vs 4x melee).",
-		min = 1,
-		max = 16,
-		step = 0.5,
-		jump = 0.5,
-		decimalPlaces = 1,
+		min = 1, max = 16, step = 0.5, jump = 0.5, decimalPlaces = 1,
 		variable = mwse.mcm.createTableVariable({ id = "marksmanBow", table = mult }),
 	})
-	strike:createSlider({
+	weapons:createSlider({
 		label = "Crossbow",
-		description = "Sneak attack multiplier for crossbows. Vanilla ranged sneak bonus is 1.5x (vs 4x melee).",
-		min = 1,
-		max = 16,
-		step = 0.5,
-		jump = 0.5,
-		decimalPlaces = 1,
+		min = 1, max = 16, step = 0.5, jump = 0.5, decimalPlaces = 1,
 		variable = mwse.mcm.createTableVariable({ id = "marksmanCrossbow", table = mult }),
 	})
-	strike:createSlider({
+	weapons:createSlider({
 		label = "Thrown: Dart, Throwing Star, Throwing Knife",
-		description = "Sneak attack multiplier for thrown weapons. Vanilla ranged sneak bonus is 1.5x (vs 4x melee).",
-		min = 1,
-		max = 16,
-		step = 0.5,
-		jump = 0.5,
-		decimalPlaces = 1,
+		min = 1, max = 16, step = 0.5, jump = 0.5, decimalPlaces = 1,
 		variable = mwse.mcm.createTableVariable({ id = "marksmanThrown", table = mult }),
 	})
 
