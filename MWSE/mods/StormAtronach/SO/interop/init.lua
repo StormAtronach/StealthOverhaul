@@ -1,4 +1,4 @@
-local config    = require("StormAtronach.SO.config")
+local config = require("StormAtronach.SO.config")
 local detection = require("StormAtronach.SO.detection")
 
 ---@class SA_SO_Interop
@@ -20,17 +20,17 @@ interop.events = {
 }
 
 --- Returns the current suspicion level (0.0–1.0) for the given actor reference ID.
----@param actorId string
----@return number
+----@param actorId string
+----@return number
 interop.getSuspicion = detection.getSuspicion
 
 --- Adds suspicion to an actor, capped at 1.0. Restarts the decay delay timer.
----@param actorId string
----@param amount number  0.0–1.0
+----@param actorId string
+----@param amount number  0.0–1.0
 interop.addSuspicion = detection.addSuspicion
 
 --- Clears all suspicion and tracking state for an actor immediately.
----@param actorId string
+----@param actorId string
 interop.clearSuspicion = detection.clearSuspicion
 
 return interop

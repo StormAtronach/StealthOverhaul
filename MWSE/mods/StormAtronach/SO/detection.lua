@@ -293,6 +293,7 @@ local function onSimulate(e)
 		if current <= 0 and not active then
 			detection.suspicion[actorId] = nil
 			detectionState[actorId] = nil
+			sneakChanceLogTime[actorId] = nil
 			if decayTimers[actorId] then
 				decayTimers[actorId]:cancel()
 				decayTimers[actorId] = nil

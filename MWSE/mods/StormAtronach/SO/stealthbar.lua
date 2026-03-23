@@ -318,10 +318,22 @@ local function onSimulate(e)
 		::continue::
 	end
 
-	-- Detach markers for actors that left proximity this frame
+	-- Clean up actors that left proximity this frame
 	for actorId in pairs(markerPool) do
 		if not seenActors[actorId] then
 			detachMarker(actorId)
+		end
+	end
+	for actorId, bar in pairs(barPool) do
+		if not seenActors[actorId] then
+			bar.menu:destroy()
+			barPool[actorId] = nil
+			log:debug("Destroyed suspicion bar for %s (left proximity)", actorId)
+		end
+	end
+	for actorId in pairs(displayState) do
+		if not seenActors[actorId] then
+			displayState[actorId] = nil
 		end
 	end
 end
