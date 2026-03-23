@@ -120,18 +120,19 @@ event.register(tes3.event.loaded, onLoad)
 local function computeDetectionRate(detector, distance, actorId)
 	local player = tes3.mobilePlayer
 
-	-- Effective detection range shrinks with sneak skill
-	local sneakReduction = config.maxReduce * (player.sneak.current / 100) ^ config.sneakPow
+	-- Effective detection range shrinks with sneak skill.
+	-- When not sneaking (invisible/chameleon only), sneak reduction is 25% as effective.
+	local sneakReductionMult = player.isSneaking and 1.0 or 0.25
+	local sneakReduction = config.maxReduce * ((player.sneak.current / 100) ^ config.sneakPow) * sneakReductionMult
 	local effectiveRange = config.baseRange * (1 - sneakReduction / 100)
 
 	-- Distance factor: squared falloff, reaches 0 at effectiveRange
 	local distanceFactor = math.max(0, 1 - distance / effectiveRange) ^ config.distPow
 
 	-- Angle factor: continuous from 0.25 (directly behind NPC) to 1.0 (face-on)
-	-- dot = 1 when player is in front, -1 when behind
-	local toPlayer = (tes3.player.position - detector.reference.position):normalized()
-	local dot = detector.reference.forwardDirection:dot(toPlayer)
-	local angleFactor = 0.25 + 0.75 * (1 + dot) / 2
+	-- getViewToActor: 0 = directly in front, ±180 = directly behind
+	local angle = detector:getViewToActor(tes3.mobilePlayer)
+	local angleFactor = 0.25 + 0.75 * (1 + math.cos(math.rad(angle))) / 2
 
 	local rawRate = distanceFactor * angleFactor
 
@@ -151,8 +152,8 @@ local function computeDetectionRate(detector, distance, actorId)
 	local now = os.clock()
 	if (now - (sneakChanceLogTime[actorId] or 0)) >= 0.25 then
 		sneakChanceLogTime[actorId] = now
-		log:trace("[rate:%s] dist=%.0f effRange=%.0f distFactor=%.3f dot=%.2f angleFactor=%.2f rawRate=%.3f", actorId,
-		          distance, effectiveRange, distanceFactor, dot, angleFactor, rawRate)
+		log:trace("[rate:%s] dist=%.0f effRange=%.0f distFactor=%.3f angle=%.1f angleFactor=%.2f rawRate=%.3f", actorId,
+		          distance, effectiveRange, distanceFactor, angle, angleFactor, rawRate)
 		log:trace(
 		"[rate:%s] standStill=%.2f light=%.2f shoe=%.2f chameleon=%.0f => rate=%.4f/s (fillTime=%.1fs) | sneakXP: %.2f",
 		actorId, standStillMult, lightFactor, shoeFactor, chameleon, rate, config.fillTime,
@@ -208,7 +209,8 @@ local function detectSneakCallback(e)
 	if e.target ~= tes3.mobilePlayer then
 		return
 	end
-	if not tes3.mobilePlayer.isSneaking then
+	local mp = tes3.mobilePlayer
+	if not mp.isSneaking and mp.chameleon <= 0 and mp.invisibility <= 0 then
 		return
 	end
 	if e.detector.inCombat then
