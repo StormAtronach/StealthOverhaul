@@ -1,5 +1,4 @@
 local config = require("StormAtronach.SO.config")
-local util = require("StormAtronach.SO.util")
 
 local log = mwse.Logger.new({ moduleName = "detection", level = config.logLevel })
 
@@ -23,6 +22,9 @@ local sneakChanceLogTime = {}
 local lightSources   = {}  -- { ref = tes3reference, radius = number }
 local playerInLight  = false
 local lightCheckTimer = nil
+
+-- Sneak transition tracking: used to detect when the player enters sneak mode.
+local wasSneaking = false
 
 --- Restart the per-actor decay delay timer.
 ---@param actorId string
@@ -104,6 +106,7 @@ local function onLoad()
 	sneakChanceLogTime = {}
 	lightSources = {}
 	playerInLight = false
+	wasSneaking = false
 	log:debug("Detection system reset on load")
 end
 event.register(tes3.event.loaded, onLoad)
@@ -150,18 +153,11 @@ local function computeDetectionRate(detector, distance, actorId)
 		sneakChanceLogTime[actorId] = now
 		log:trace("[rate:%s] dist=%.0f effRange=%.0f distFactor=%.3f dot=%.2f angleFactor=%.2f rawRate=%.3f",
 			actorId, distance, effectiveRange, distanceFactor, dot, angleFactor, rawRate)
-		log:trace("[rate:%s] standStill=%.2f light=%.2f shoe=%.2f chameleon=%.0f => rate=%.4f/s (fillTime=%.1fs)",
-			actorId, standStillMult, lightFactor, shoeFactor, chameleon, rate, config.fillTime)
+		log:trace("[rate:%s] standStill=%.2f light=%.2f shoe=%.2f chameleon=%.0f => rate=%.4f/s (fillTime=%.1fs) | sneakXP: %.2f",
+			actorId, standStillMult, lightFactor, shoeFactor, chameleon, rate, config.fillTime,
+			tes3.mobilePlayer.skillProgress[tes3.skill.sneak])
 	end
 	return rate
-end
-
---- Returns true if this actor has a mechanical reason to be hostile toward the player.
----@param actor tes3mobileNPC|tes3mobileCreature
----@return boolean
-local function isHostileActor(actor)
-	local disposition = actor.object and actor.object.disposition or 50
-	return actor.fight >= 83 or (actor.fight >= 70 and disposition <= 25)
 end
 
 --[==[
@@ -192,6 +188,17 @@ end
 event.register("crimeWitnessed", onCrimeWitnessed, { priority = 1000 })
 ]==]
 
+---@param e skillRaisedEventData
+local function onSkillRaised(e)
+	if e.skill == tes3.skill.sneak then
+		log:debug("[sneak] level up! new level: %d | xp progress reset to: %.2f (source: %s)",
+			e.level,
+			tes3.mobilePlayer.skillProgress[tes3.skill.sneak + 1],
+			tostring(e.source))
+	end
+end
+event.register(tes3.event.skillRaised, onSkillRaised)
+
 --- detectSneak fires per actor per AI tick.
 --- We only record vanilla's detection state here; accumulation happens in simulate.
 ---@param e detectSneakEventData
@@ -211,9 +218,8 @@ local function detectSneakCallback(e)
 	local detector = e.detector --[[@as tes3mobileNPC|tes3mobileCreature]]
 	local ref = detector.reference
 	local actorId = ref.id
-	local actorName = (ref.object and ref.object.name or ""):lower()
-	local stolenFrom = util.getData().currentCrime.npcs[actorName] and true or false
-	local fullDetection = isHostileActor(detector) or stolenFrom
+
+	local previouslyDetected = e.detector.isPlayerDetected
 
 	-- Compute detection rate and store for the simulate loop
 	local distance = detector.reference.position:distance(tes3.player.position)
@@ -221,18 +227,11 @@ local function detectSneakCallback(e)
 	detectionState[actorId] = { rate = rate, lastUpdate = os.clock() }
 	log:trace("[detectSneak] %s distance=%.0f rate=%.4f/s", actorId, distance, rate)
 
-	-- Non-hostile actors: suspicion tracked for bar/marker only; vanilla unchanged
-	if not fullDetection then
-		return
-	end
-
-	-- Override vanilla: replace with our accumulator-based result
-	local previouslyDetected = detector.isPlayerDetected
+	-- Override vanilla with our accumulator-based result
 	local nowDetected = (detection.suspicion[actorId] or 0) >= 1.0
-
-	e.isDetected = nowDetected
+	e.isDetected      = nowDetected
 	detector.isPlayerDetected = nowDetected
-	detector.isPlayerHidden = not nowDetected
+	detector.isPlayerHidden   = not nowDetected
 
 	if nowDetected and not previouslyDetected then
 		log:debug("Detected by %s! Progress reached 1.0.", actorId)
@@ -247,6 +246,25 @@ event.register(tes3.event.detectSneak, detectSneakCallback, { priority = 1000 })
 ---@param e simulateEventData
 local function onSimulate(e)
 	if not config.modEnabled then return end
+
+	-- On sneak start: initialize already-detected nearby actors to full suspicion
+	-- so the player can't escape detection by simply pressing sneak.
+	local isSneaking = tes3.mobilePlayer.isSneaking
+	if isSneaking and not wasSneaking then
+		local nearby = tes3.findActorsInProximity({ reference = tes3.player, range = config.baseRange })
+		if nearby then
+			for _, ref in ipairs(nearby) do
+				local r   = ref --[[@as tes3reference]]
+				local mob = r.mobile --[[@as tes3mobileActor]]
+				if mob and mob ~= tes3.mobilePlayer and mob.isPlayerDetected then
+					detection.suspicion[r.id] = 1.0
+					log:debug("[sneak start] %s was already detected, suspicion set to 1.0", r.id)
+				end
+			end
+		end
+	end
+	wasSneaking = isSneaking
+
 	-- Nothing to process if no actor is being tracked
 	if not next(detection.suspicion) and not next(detectionState) then
 		return
