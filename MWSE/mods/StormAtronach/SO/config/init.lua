@@ -31,6 +31,7 @@ local default = {
 	stealSuspicionBonus = 50, -- bonus added on undetected theft (0–100 maps to 0.0–1.0 of progress)
 	-- Stealth bar / marker display
 	crosshairColorEnabled = true,
+	keepVanillaCrosshair = false,
 	fillbarEnabled = false,
 	markerEnabled = false,
 	barRange = 2000, -- bars/markers only shown within this distance (units)

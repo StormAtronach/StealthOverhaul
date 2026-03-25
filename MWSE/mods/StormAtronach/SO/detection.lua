@@ -122,8 +122,10 @@ local function computeDetectionRate(detector, distance, actorId)
 
 	-- Effective detection range shrinks with sneak skill.
 	-- When not sneaking (invisible/chameleon only), sneak reduction is 25% as effective.
+	-- Clamp skill to 100 so uncapping mods don't push reduction past maxReduce.
+	local sneakSkill = math.min(player.sneak.current, 100)
 	local sneakReductionMult = player.isSneaking and 1.0 or 0.25
-	local sneakReduction = config.maxReduce * ((player.sneak.current / 100) ^ config.sneakPow) * sneakReductionMult
+	local sneakReduction = config.maxReduce * ((sneakSkill / 100) ^ config.sneakPow) * sneakReductionMult
 	local effectiveRange = config.baseRange * (1 - sneakReduction / 100)
 
 	-- Distance factor: squared falloff, reaches 0 at effectiveRange
@@ -131,13 +133,13 @@ local function computeDetectionRate(detector, distance, actorId)
 
 	-- Angle factor: continuous from 0.25 (directly behind NPC) to 1.0 (face-on)
 	-- getViewToActor: 0 = directly in front, ±180 = directly behind
-	local angle = detector:getViewToActor(tes3.mobilePlayer)
+	local angle = detector:getViewToActor(player)
 	local angleFactor = 0.25 + 0.75 * (1 + math.cos(math.rad(angle))) / 2
 
 	local rawRate = distanceFactor * angleFactor
 
 	-- Modifiers
-	local chameleon = tes3.mobilePlayer.chameleon or 0
+	local chameleon = player.chameleon or 0
 	local standStillMult = player.velocity:length() < 5 and 0.8 or 1.0
 	local lightFactor = (config.lightMechanicEnabled and playerInLight) and config.lightRateMult or 1.0
 	local shoeFactor = 1 + player:getBootsWeight() / 50

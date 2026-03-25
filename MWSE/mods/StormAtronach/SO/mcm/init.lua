@@ -185,9 +185,15 @@ local function registerModConfig()
 	hud:createCategory({ label = "Crosshair" })
 
 	hud:createYesNoButton({
-		label = "Crosshair Color",
-		description = "While sneaking, tints the crosshair from green (no suspicion) through yellow to red (fully detected). Reflects the highest suspicion level among all nearby actors.",
+		label = "Sneak Eye Crosshair",
+		description = "While sneaking, overlays the crosshair with an animated sneak eye that opens as suspicion rises (closed at 0, fully open at 1.0). Reflects the highest suspicion among nearby actors.",
 		configKey = "crosshairColorEnabled",
+	})
+
+	hud:createYesNoButton({
+		label = "Keep Vanilla Crosshair",
+		description = "When enabled, the vanilla crosshair dot remains visible underneath the sneak eye overlay. When disabled, the vanilla crosshair is hidden while the sneak eye is active.",
+		configKey = "keepVanillaCrosshair",
 	})
 
 	hud:createCategory({ label = "Suspicion Indicators" })

@@ -3,25 +3,38 @@ local detection = require("StormAtronach.SO.detection")
 
 local log = mwse.Logger.new({ moduleName = "stealthbar", level = config.logLevel })
 
--- Crosshair color: UI image element created inside MenuMulti, colored each frame
-local crosshairElement = nil
-local crosshairParent = nil
+local MARKER_FRAME_COUNT = 21
 
----@param r number
----@param g number
----@param b number
-local function setCrosshairColor(r, g, b)
-	if not crosshairElement then
-		log:debug("[crosshair] setCrosshairColor called but element is nil")
-		return
+-- Crosshair: 21 UI image elements stacked inside MenuMulti; one visible at a time
+local crosshairFrames = {}   -- [1..21] = tes3uiElement
+local crosshairActiveFrame = nil
+local crosshairParent = nil
+local crosshairSmoothFrame = nil
+
+local function getVanillaCrosshairNode()
+	local nc = tes3.worldController.nodeCursor
+	return nc and nc.children[1]
+end
+
+---@param frameIndex number|nil  1–21 to show that frame, nil to hide all
+local function setCrosshairFrame(frameIndex)
+	if frameIndex == crosshairActiveFrame then return end
+	-- Hide the previously active frame
+	if crosshairActiveFrame and crosshairFrames[crosshairActiveFrame] then
+		crosshairFrames[crosshairActiveFrame].visible = false
 	end
-	if r == 1 and g == 1 and b == 1 then
-		crosshairElement.visible = false
+	local vanillaNode = getVanillaCrosshairNode()
+	if frameIndex and crosshairFrames[frameIndex] then
+		crosshairFrames[frameIndex].visible = true
+		if vanillaNode and not config.keepVanillaCrosshair then
+			vanillaNode.appCulled = true
+		end
+		log:trace("[crosshair] frame %d", frameIndex)
 	else
-		log:debug("[crosshair] setting color %.2f %.2f %.2f", r, g, b)
-		crosshairElement.color = { r, g, b }
-		crosshairElement.visible = true
+		if vanillaNode then vanillaNode.appCulled = false end
 	end
+	crosshairActiveFrame = frameIndex
+	if crosshairParent then crosshairParent:updateLayout() end
 end
 
 local function createCrosshair()
@@ -32,9 +45,10 @@ local function createCrosshair()
 	end
 
 	local existing = crosshairParent:findChild("SA_SO_crosshair_block")
-	if existing then
-		existing:destroy()
-	end
+	if existing then existing:destroy() end
+	crosshairFrames = {}
+	crosshairActiveFrame = nil
+	crosshairSmoothFrame = nil
 
 	local block = crosshairParent:createBlock{ id = "SA_SO_crosshair_block" }
 	block.layoutOriginFractionX = 0.5
@@ -43,13 +57,15 @@ local function createCrosshair()
 	block.autoHeight = true
 	block.consumeMouseEvents = false
 
-	local tex = "textures/sneak_eye.dds"
-	crosshairElement = block:createImage({ path = tex })
-	crosshairElement.visible = false
-	crosshairElement.consumeMouseEvents = false
+	for i = 1, MARKER_FRAME_COUNT do
+		local img = block:createImage({ path = string.format("textures/sa_so_ch/%d.dds", i) })
+		img.visible = false
+		img.consumeMouseEvents = false
+		crosshairFrames[i] = img
+	end
 
 	crosshairParent:updateLayout()
-	log:debug("[crosshair] UI overlay created in MenuMulti (%s)", tex)
+	log:debug("[crosshair] UI overlay created with %d frames", MARKER_FRAME_COUNT)
 end
 
 local function onMenuMultiActivated(e)
@@ -69,56 +85,45 @@ local BAR_Y_OFFSET = 0.04
 -- Pool of per-actor bar menus: [actorId] = { menu, fillbar }
 local barPool = {}
 
--- === 3-D suspicion marker ===
-local MARKER_MESH = "sa_so/marker_error.nif"
--- Height above the actor's local origin (feet) to place the marker
-local MARKER_Z = 180
--- Half-extent of the mesh in its local space (from NIF vertex data)
-local MARKER_HALF_EXTENT = 181
+-- === 3-D suspicion marker (billboard sneak eye) ===
+local MARKER_MESH = "sa_so/sa_se.nif"
+local MARKER_Z = 140
 
--- [actorId] = { node = niNode, ref = tes3reference }
+-- [actorId] = { node = niNode, ref = tes3reference, texProp = niTexturingProperty }
 local markerPool = {}
-local markerTemplate -- loaded once, cloned per actor
+local markerTemplate
+local markerTextures  -- niSourceTexture[1..21], pre-loaded once
+
+local function loadMarkerTextures()
+	if markerTextures then return markerTextures end
+	markerTextures = {}
+	for i = 1, MARKER_FRAME_COUNT do
+		markerTextures[i] = niSourceTexture.createFromPath(
+			string.format("textures/sa_so/%d.dds", i)
+		)
+	end
+	log:debug("[marker] Pre-loaded %d textures", MARKER_FRAME_COUNT)
+	return markerTextures
+end
 
 local function getMarkerTemplate()
 	if not markerTemplate then
 		markerTemplate = tes3.loadMesh(MARKER_MESH)
+		loadMarkerTextures()
 	end
 	return markerTemplate
 end
 
---- Return the niMaterialProperty of the named child shape, or nil.
----@param node niNode
----@param shapeName string
----@return niMaterialProperty|nil
-local function getShapeMat(node, shapeName)
-	local shape = node:getObjectByName(shapeName)
-	if not shape then
-		return nil
-	end
-	---@diagnostic disable-next-line: return-type-mismatch
-	return shape:getProperty(ni.propertyType.material) --[[@as niMaterialProperty]]
-end
-
 local function attachMarker(ref, actorId)
 	local entry = markerPool[actorId]
-	-- If we already have a node for this actor, just return it
-	if entry then
-		return entry.node
-	end
-
-	if not ref.sceneNode then
-		return nil
-	end
+	if entry then return entry.node end
+	if not ref.sceneNode then return nil end
 	local tmpl = getMarkerTemplate()
-	if not tmpl then
-		return nil
-	end
+	if not tmpl then return nil end
 
 	local node = tmpl:clone()
 	node.name = "SA_SO_Marker_" .. actorId
 	node.translation = tes3vector3.new(0, 0, MARKER_Z)
-	node.scale = 0
 	node.appCulled = true
 
 	ref.sceneNode:attachChild(node, true)
@@ -126,9 +131,10 @@ local function attachMarker(ref, actorId)
 	ref.sceneNode:updateNodeEffects()
 
 	---@diagnostic disable-next-line: param-type-mismatch
-	local colorMat = getShapeMat(node --[[@as niNode]] , "Tri Marker_error 0")
-	markerPool[actorId] = { node = node, ref = ref, colorMat = colorMat }
-	log:debug("Attached suspicion marker to %s", actorId)
+	local shape = node:getObjectByName("plane") --[[@as niTriShape]]
+	local texProp = shape and shape:getProperty(ni.propertyType.texturing) --[[@as niTexturingProperty]]
+	markerPool[actorId] = { node = node, ref = ref, texProp = texProp }
+	log:debug("Attached sneak eye marker to %s", actorId)
 	return node
 end
 
@@ -264,7 +270,9 @@ local function destroyAllBars()
 	barPool = {}
 	displayState = {}
 	markerPool = {}
-	crosshairElement = nil
+	crosshairFrames = {}
+	crosshairActiveFrame = nil
+	crosshairSmoothFrame = nil
 	log:debug("Bar and marker pools reset on load")
 	createCrosshair()
 end
@@ -280,24 +288,28 @@ local function onSimulate(e)
 	for _, entry in pairs(markerPool) do
 		entry.node.appCulled = true
 	end
+	local dt = e.delta
+
 	if not config.modEnabled then
-		setCrosshairColor(1, 1, 1)
+		setCrosshairFrame(nil)
+		crosshairSmoothFrame = nil
 		return
 	end
 
-	-- Crosshair color: green→red based on max suspicion
+	-- Crosshair: animated sneak eye driven by max suspicion
 	if config.crosshairColorEnabled and tes3.mobilePlayer.isSneaking then
 		local maxSuspicion = 0
 		for _, s in pairs(detection.suspicion) do
-			if s > maxSuspicion then
-				maxSuspicion = s
-			end
+			if s > maxSuspicion then maxSuspicion = s end
 		end
-		local r = math.min(maxSuspicion * 2, 1)
-		local g = math.min((1 - maxSuspicion) * 2, 1)
-		setCrosshairColor(r, g, 0)
+		local targetFrame = MARKER_FRAME_COUNT - maxSuspicion * (MARKER_FRAME_COUNT - 1)
+		crosshairSmoothFrame = crosshairSmoothFrame or targetFrame
+		crosshairSmoothFrame = crosshairSmoothFrame + (targetFrame - crosshairSmoothFrame) * (1 - math.exp(-8 * dt))
+		local frameIndex = math.clamp(math.floor(crosshairSmoothFrame + 0.5), 1, MARKER_FRAME_COUNT)
+		setCrosshairFrame(frameIndex)
 	else
-		setCrosshairColor(1, 1, 1)
+		setCrosshairFrame(nil)
+		crosshairSmoothFrame = nil
 	end
 
 	if tes3ui.menuMode() then
@@ -311,7 +323,6 @@ local function onSimulate(e)
 		return
 	end
 
-	local dt = e.delta
 	local actors = tes3.findActorsInProximity({ reference = tes3.player, range = config.barRange })
 
 	-- Track which actors are in range this frame so we can clean up stale markers
@@ -340,16 +351,17 @@ local function onSimulate(e)
 			local marker = attachMarker(ref, actorId)
 			if marker then
 				marker.appCulled = false
-				local sizeUnits = config.markerMinSize + pct * (config.markerMaxSize - config.markerMinSize)
-				marker.scale = sizeUnits / MARKER_HALF_EXTENT
-				-- Green → yellow → red, same gradient as the HUD bar
-				local r = math.min(pct * 2, 1)
-				local g = math.min((1 - pct) * 2, 1)
 				local entry = markerPool[actorId]
-				if entry and entry.colorMat then
-					entry.colorMat.emissive = niColor.new(r, g, 0)
+				local textures = loadMarkerTextures()
+				local targetFrame = MARKER_FRAME_COUNT - pct * (MARKER_FRAME_COUNT - 1)
+				local smoothFrame = entry.smoothFrame or targetFrame
+				smoothFrame = smoothFrame + (targetFrame - smoothFrame) * (1 - math.exp(-8 * dt))
+				entry.smoothFrame = smoothFrame
+				local frameIndex = math.floor(smoothFrame + 0.5)
+				frameIndex = math.clamp(frameIndex, 1, MARKER_FRAME_COUNT)
+				if entry.texProp and textures[frameIndex] then
+					entry.texProp.maps[1].texture = textures[frameIndex]
 				end
-				ref.sceneNode:update()
 			end
 		elseif markerPool[actorId] then
 			-- Suspicion gone or disabled: cull and release the node
