@@ -3,13 +3,17 @@ local detection = require("StormAtronach.SO.detection")
 
 local log = mwse.Logger.new({ moduleName = "stealthbar", level = config.logLevel })
 
+-- G7: You can use this to switch back and forth from the flip controller to the manual swap
+-- Set to true to drive animation via NiFlipController + node:update() instead of manual texture swap.
+-- Frame-to-time mapping: frame 1 = time 0, frame 21 = time 20/21 (Stop Time = 1, SecsPerFrame = 1/21).
+local USE_FLIP_CONTROLLER = true
+
 local MARKER_FRAME_COUNT = 21
 
 -- Crosshair: 21 UI image elements stacked inside MenuMulti; one visible at a time
-local crosshairFrames = {}   -- [1..21] = tes3uiElement
+local crosshairFrames = {} -- [1..21] = tes3uiElement
 local crosshairActiveFrame = nil
 local crosshairParent = nil
-local crosshairSmoothFrame = nil
 
 local function getVanillaCrosshairNode()
 	local nc = tes3.worldController.nodeCursor
@@ -18,7 +22,9 @@ end
 
 ---@param frameIndex number|nil  1–21 to show that frame, nil to hide all
 local function setCrosshairFrame(frameIndex)
-	if frameIndex == crosshairActiveFrame then return end
+	if frameIndex == crosshairActiveFrame then
+		return
+	end
 	-- Hide the previously active frame
 	if crosshairActiveFrame and crosshairFrames[crosshairActiveFrame] then
 		crosshairFrames[crosshairActiveFrame].visible = false
@@ -31,24 +37,31 @@ local function setCrosshairFrame(frameIndex)
 		end
 		log:trace("[crosshair] frame %d", frameIndex)
 	else
-		if vanillaNode then vanillaNode.appCulled = false end
+		if vanillaNode then
+			vanillaNode.appCulled = false
+		end
 	end
 	crosshairActiveFrame = frameIndex
-	if crosshairParent then crosshairParent:updateLayout() end
+	if crosshairParent then
+		crosshairParent:updateLayout()
+	end
 end
 
 local function createCrosshair()
-	if tes3ui.menuMode() then return end
+	if tes3ui.menuMode() then
+		return
+	end
 	if crosshairParent == nil then
 		log:debug("[crosshair] no parent found, aborting crosshair creation")
 		return
 	end
 
 	local existing = crosshairParent:findChild("SA_SO_crosshair_block")
-	if existing then existing:destroy() end
+	if existing then
+		existing:destroy()
+	end
 	crosshairFrames = {}
 	crosshairActiveFrame = nil
-	crosshairSmoothFrame = nil
 
 	local block = crosshairParent:createBlock{ id = "SA_SO_crosshair_block" }
 	block.layoutOriginFractionX = 0.5
@@ -89,18 +102,18 @@ local barPool = {}
 local MARKER_MESH = "sa_so/sa_se.nif"
 local MARKER_Z = 140
 
--- [actorId] = { node = niNode, ref = tes3reference, texProp = niTexturingProperty }
+-- [actorId] = { node = niNode, ref = tes3reference, texProp = niTexturingProperty, flipCtrl = niTimeController|nil }
 local markerPool = {}
 local markerTemplate
-local markerTextures  -- niSourceTexture[1..21], pre-loaded once
+local markerTextures -- niSourceTexture[1..21], pre-loaded once
 
 local function loadMarkerTextures()
-	if markerTextures then return markerTextures end
+	if markerTextures then
+		return markerTextures
+	end
 	markerTextures = {}
 	for i = 1, MARKER_FRAME_COUNT do
-		markerTextures[i] = niSourceTexture.createFromPath(
-			string.format("textures/sa_so/%d.dds", i)
-		)
+		markerTextures[i] = niSourceTexture.createFromPath(string.format("textures/sa_so/%d.dds", i))
 	end
 	log:debug("[marker] Pre-loaded %d textures", MARKER_FRAME_COUNT)
 	return markerTextures
@@ -116,10 +129,16 @@ end
 
 local function attachMarker(ref, actorId)
 	local entry = markerPool[actorId]
-	if entry then return entry.node end
-	if not ref.sceneNode then return nil end
+	if entry then
+		return entry.node
+	end
+	if not ref.sceneNode then
+		return nil
+	end
 	local tmpl = getMarkerTemplate()
-	if not tmpl then return nil end
+	if not tmpl then
+		return nil
+	end
 
 	local node = tmpl:clone()
 	node.name = "SA_SO_Marker_" .. actorId
@@ -131,9 +150,10 @@ local function attachMarker(ref, actorId)
 	ref.sceneNode:updateNodeEffects()
 
 	---@diagnostic disable-next-line: param-type-mismatch
-	local shape = node:getObjectByName("plane") --[[@as niTriShape]]
+	local shape = node:getObjectByName("eye_plane") --[[@as niTriShape]]
 	local texProp = shape and shape:getProperty(ni.propertyType.texturing) --[[@as niTexturingProperty]]
-	markerPool[actorId] = { node = node, ref = ref, texProp = texProp }
+	local flipCtrl = shape and shape.controller --[[@as niTimeController]]
+	markerPool[actorId] = { node = node, ref = ref, texProp = texProp, flipCtrl = flipCtrl }
 	log:debug("Attached sneak eye marker to %s", actorId)
 	return node
 end
@@ -272,7 +292,6 @@ local function destroyAllBars()
 	markerPool = {}
 	crosshairFrames = {}
 	crosshairActiveFrame = nil
-	crosshairSmoothFrame = nil
 	log:debug("Bar and marker pools reset on load")
 	createCrosshair()
 end
@@ -292,7 +311,6 @@ local function onSimulate(e)
 
 	if not config.modEnabled then
 		setCrosshairFrame(nil)
-		crosshairSmoothFrame = nil
 		return
 	end
 
@@ -300,16 +318,15 @@ local function onSimulate(e)
 	if config.crosshairColorEnabled and tes3.mobilePlayer.isSneaking then
 		local maxSuspicion = 0
 		for _, s in pairs(detection.suspicion) do
-			if s > maxSuspicion then maxSuspicion = s end
+			if s > maxSuspicion then
+				maxSuspicion = s
+			end
 		end
-		local targetFrame = MARKER_FRAME_COUNT - maxSuspicion * (MARKER_FRAME_COUNT - 1)
-		crosshairSmoothFrame = crosshairSmoothFrame or targetFrame
-		crosshairSmoothFrame = crosshairSmoothFrame + (targetFrame - crosshairSmoothFrame) * (1 - math.exp(-8 * dt))
-		local frameIndex = math.clamp(math.floor(crosshairSmoothFrame + 0.5), 1, MARKER_FRAME_COUNT)
+		local frameIndex = math.clamp(math.floor(MARKER_FRAME_COUNT - maxSuspicion * (MARKER_FRAME_COUNT - 1) + 0.5), 1,
+		                              MARKER_FRAME_COUNT)
 		setCrosshairFrame(frameIndex)
 	else
 		setCrosshairFrame(nil)
-		crosshairSmoothFrame = nil
 	end
 
 	if tes3ui.menuMode() then
@@ -352,15 +369,20 @@ local function onSimulate(e)
 			if marker then
 				marker.appCulled = false
 				local entry = markerPool[actorId]
-				local textures = loadMarkerTextures()
-				local targetFrame = MARKER_FRAME_COUNT - pct * (MARKER_FRAME_COUNT - 1)
-				local smoothFrame = entry.smoothFrame or targetFrame
-				smoothFrame = smoothFrame + (targetFrame - smoothFrame) * (1 - math.exp(-8 * dt))
-				entry.smoothFrame = smoothFrame
-				local frameIndex = math.floor(smoothFrame + 0.5)
-				frameIndex = math.clamp(frameIndex, 1, MARKER_FRAME_COUNT)
-				if entry.texProp and textures[frameIndex] then
-					entry.texProp.maps[1].texture = textures[frameIndex]
+				local frameIndex = math.clamp(math.floor(MARKER_FRAME_COUNT - pct * (MARKER_FRAME_COUNT - 1) + 0.5), 1,
+				                              MARKER_FRAME_COUNT)
+				if USE_FLIP_CONTROLLER then
+					-- NiFlipController path: map frame index to controller time and let node:update() apply it.
+					-- Frame 1 = time 0, frame 21 = time 20/21 (Stop Time = 1, SecsPerFrame = 1/21).
+					local ctrlTime = (frameIndex - 1) / MARKER_FRAME_COUNT
+					local eye_plane = entry.node:getObjectByName("eye_plane")
+					local texProp = eye_plane.texturingProperty
+					texProp.controller.phase = 1 - ctrlTime
+				else
+					local textures = loadMarkerTextures()
+					if entry.texProp and textures[frameIndex] then
+						entry.texProp.maps[1].texture = textures[frameIndex]
+					end
 				end
 			end
 		elseif markerPool[actorId] then
