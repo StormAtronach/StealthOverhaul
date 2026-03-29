@@ -92,6 +92,10 @@ local function attackHitCallback(e)
 	if not e.targetMobile then
 		return
 	end
+	if not (   e.targetMobile.actorType == tes3.actorType.creature
+			or e.targetMobile.actorType == tes3.actorType.npc) then
+		return
+	end
 	if e.targetMobile.isPlayerDetected then
 		return
 	end
