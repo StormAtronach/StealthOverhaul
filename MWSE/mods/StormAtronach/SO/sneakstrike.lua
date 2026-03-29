@@ -95,10 +95,6 @@ local function attackHitCallback(e)
 	if e.targetMobile.isPlayerDetected then
 		return
 	end
-	if e.targetMobile.actorType ~= tes3.actorType.npc then
-		return
-	end
-
 	-- Determine weapon type key
 	local weaponTypeKey
 	local weapon = e.mobile.readiedWeapon
@@ -125,7 +121,7 @@ local function attackHitCallback(e)
 	log:debug("Sneak attack [%s]: baseDamage=%.1f mult=x%.2f newDamage=%.1f nonLethal=%s", weaponTypeKey, baseDamage,
 	          multiplier, e.mobile.actionData.physicalDamage, tostring(isNonLethal))
 
-	if isNonLethal then
+	if isNonLethal and e.targetMobile.actorType == tes3.actorType.npc then
 		-- Helmet check: player's relevant skill tier vs target's helmet weight class
 		local helmet = tes3.getEquippedItem({
 			actor = e.targetMobile,

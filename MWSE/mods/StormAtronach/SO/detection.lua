@@ -264,12 +264,14 @@ local function onSimulate(e)
 	if isSneaking and not wasSneaking then
 		local nearby = tes3.findActorsInProximity({ reference = tes3.player, range = config.baseRange })
 		if nearby then
-			for _, ref in ipairs(nearby) do
-				local r = ref --[[@as tes3reference]]
-				local mob = r.mobile --[[@as tes3mobileActor]]
-				if mob and mob ~= tes3.mobilePlayer and mob.isPlayerDetected then
-					detection.suspicion[r.id] = 1.0
-					log:debug("[sneak start] %s was already detected, suspicion set to 1.0", r.id)
+			for _, mob in ipairs(nearby) do
+				---@cast mob tes3mobileActor
+				if mob ~= tes3.mobilePlayer and mob.isPlayerDetected then
+					local ref = mob.reference
+					if ref then
+						detection.suspicion[ref.id] = 1.0
+						log:debug("[sneak start] %s was already detected, suspicion set to 1.0", ref.id)
+					end
 				end
 			end
 		end

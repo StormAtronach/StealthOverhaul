@@ -87,7 +87,7 @@ function util.updateData(p)
     local ownerID = p.ownerID -- The ownner id
     if not ownerID then log:debug("No owner id given") return false end
     local itemID = p.itemID
-    if not itemID then log:debug("No owner id given") return false end
+    if not itemID then log:debug("No itemID id given") return false end
     local size = p.size or 0
     local count = p.count or 0
     local value = p.value or 0
@@ -244,7 +244,7 @@ function util.gotCaughtOwner(npcSafeHandle)
     ---@type tes3reference|nil
     local npcRef = nil
     if npcSafeHandle:valid() then
-        npcRef = npcSafeHandle:getObject() --[[@as tes3reference]]
+        npcRef = npcSafeHandle:getObject()
     else
         log:debug("Reference was not valid when it got to gotCaughtOwner")
         return
@@ -494,7 +494,7 @@ function util.gotCaughtGuard(npcSafeHandle)
 
                 end
             else
-                ---@diagnostic disable-next-line: param-type-mismatch
+                ---@cast npcRef tes3creatureInstance|tes3npcInstance
                 npcRef.mobile:startDialogue()
             end
         end,})
@@ -556,4 +556,3 @@ if config.debugLines then
 end
 
 return util
-
