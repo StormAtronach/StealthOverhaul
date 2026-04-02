@@ -190,6 +190,20 @@ local function registerModConfig()
 		configKey = "crosshairColorEnabled",
 	})
 
+	hud:createSlider({
+		label = "Sneak Eye Size",
+		description = "Size multiplier for the sneak eye crosshair. Base size is 32x32 pixels.",
+		min = 0.5,
+		max = 10,
+		step = 0.1,
+		jump = 1,
+		decimalPlaces = 1,
+		configKey = "crosshairSize",
+		callback = function()
+			event.trigger("SA_SO_crosshairRecreate")
+		end,
+	})
+
 	hud:createYesNoButton({
 		label = "Keep Vanilla Crosshair",
 		description = "When enabled, the vanilla crosshair dot remains visible underneath the sneak eye overlay. When disabled, the vanilla crosshair is hidden while the sneak eye is active.",
@@ -304,27 +318,47 @@ local function registerModConfig()
 	local skillMult = config.sneakSkillMult
 	strike:createSlider({
 		label = "Multiplier at Sneak 0",
-		min = 0.1, max = 4.0, step = 0.05, jump = 0.05, decimalPlaces = 2,
+		min = 0.1,
+		max = 4.0,
+		step = 0.05,
+		jump = 0.05,
+		decimalPlaces = 2,
 		variable = mwse.mcm.createTableVariable({ id = "skill0", table = skillMult }),
 	})
 	strike:createSlider({
 		label = "Multiplier at Sneak 25",
-		min = 0.1, max = 4.0, step = 0.05, jump = 0.05, decimalPlaces = 2,
+		min = 0.1,
+		max = 4.0,
+		step = 0.05,
+		jump = 0.05,
+		decimalPlaces = 2,
 		variable = mwse.mcm.createTableVariable({ id = "skill25", table = skillMult }),
 	})
 	strike:createSlider({
 		label = "Multiplier at Sneak 50",
-		min = 0.1, max = 4.0, step = 0.05, jump = 0.05, decimalPlaces = 2,
+		min = 0.1,
+		max = 4.0,
+		step = 0.05,
+		jump = 0.05,
+		decimalPlaces = 2,
 		variable = mwse.mcm.createTableVariable({ id = "skill50", table = skillMult }),
 	})
 	strike:createSlider({
 		label = "Multiplier at Sneak 75",
-		min = 0.1, max = 4.0, step = 0.05, jump = 0.05, decimalPlaces = 2,
+		min = 0.1,
+		max = 4.0,
+		step = 0.05,
+		jump = 0.05,
+		decimalPlaces = 2,
 		variable = mwse.mcm.createTableVariable({ id = "skill75", table = skillMult }),
 	})
 	strike:createSlider({
 		label = "Multiplier at Sneak 100",
-		min = 0.1, max = 4.0, step = 0.05, jump = 0.05, decimalPlaces = 2,
+		min = 0.1,
+		max = 4.0,
+		step = 0.05,
+		jump = 0.05,
+		decimalPlaces = 2,
 		variable = mwse.mcm.createTableVariable({ id = "skill100", table = skillMult }),
 	})
 
@@ -343,7 +377,11 @@ local function registerModConfig()
 	weapons:createSlider({
 		label = "Hand to Hand",
 		description = nonLethalNote,
-		min = 1, max = 16, step = 0.5, jump = 0.5, decimalPlaces = 1,
+		min = 1,
+		max = 16,
+		step = 0.5,
+		jump = 0.5,
+		decimalPlaces = 1,
 		variable = mwse.mcm.createTableVariable({ id = "handToHand", table = mult }),
 	})
 
@@ -351,19 +389,31 @@ local function registerModConfig()
 	weapons:createSlider({
 		label = "Short Blade: Dagger, Tanto, Wakizashi",
 		description = nonLethalNote,
-		min = 1, max = 16, step = 0.5, jump = 0.5, decimalPlaces = 1,
+		min = 1,
+		max = 16,
+		step = 0.5,
+		jump = 0.5,
+		decimalPlaces = 1,
 		variable = mwse.mcm.createTableVariable({ id = "shortBladeOneHand", table = mult }),
 	})
 	weapons:createSlider({
 		label = "Long Blade (1H): Saber, Katana, Broadsword",
 		description = nonLethalNote,
-		min = 1, max = 16, step = 0.5, jump = 0.5, decimalPlaces = 1,
+		min = 1,
+		max = 16,
+		step = 0.5,
+		jump = 0.5,
+		decimalPlaces = 1,
 		variable = mwse.mcm.createTableVariable({ id = "longBladeOneHand", table = mult }),
 	})
 	weapons:createSlider({
 		label = "Long Blade (2H): Claymore, Dai-Katana",
 		description = nonLethalNote,
-		min = 1, max = 16, step = 0.5, jump = 0.5, decimalPlaces = 1,
+		min = 1,
+		max = 16,
+		step = 0.5,
+		jump = 0.5,
+		decimalPlaces = 1,
 		variable = mwse.mcm.createTableVariable({ id = "longBladeTwoClose", table = mult }),
 	})
 
@@ -371,19 +421,31 @@ local function registerModConfig()
 	weapons:createSlider({
 		label = "Blunt (1H): Club, Mace, Morning Star",
 		description = nonLethalNote,
-		min = 1, max = 16, step = 0.5, jump = 0.5, decimalPlaces = 1,
+		min = 1,
+		max = 16,
+		step = 0.5,
+		jump = 0.5,
+		decimalPlaces = 1,
 		variable = mwse.mcm.createTableVariable({ id = "bluntOneHand", table = mult }),
 	})
 	weapons:createSlider({
 		label = "Blunt (2H): Warhammer, Maul",
 		description = nonLethalNote,
-		min = 1, max = 16, step = 0.5, jump = 0.5, decimalPlaces = 1,
+		min = 1,
+		max = 16,
+		step = 0.5,
+		jump = 0.5,
+		decimalPlaces = 1,
 		variable = mwse.mcm.createTableVariable({ id = "bluntTwoClose", table = mult }),
 	})
 	weapons:createSlider({
 		label = "Blunt (2H Wide): Staff",
 		description = nonLethalNote,
-		min = 1, max = 16, step = 0.5, jump = 0.5, decimalPlaces = 1,
+		min = 1,
+		max = 16,
+		step = 0.5,
+		jump = 0.5,
+		decimalPlaces = 1,
 		variable = mwse.mcm.createTableVariable({ id = "bluntTwoWide", table = mult }),
 	})
 
@@ -391,19 +453,31 @@ local function registerModConfig()
 	weapons:createSlider({
 		label = "Spear: Spear, Lance, Halberd",
 		description = nonLethalNote,
-		min = 1, max = 16, step = 0.5, jump = 0.5, decimalPlaces = 1,
+		min = 1,
+		max = 16,
+		step = 0.5,
+		jump = 0.5,
+		decimalPlaces = 1,
 		variable = mwse.mcm.createTableVariable({ id = "spearTwoWide", table = mult }),
 	})
 	weapons:createSlider({
 		label = "Axe (1H): Axe, Hatchet",
 		description = nonLethalNote,
-		min = 1, max = 16, step = 0.5, jump = 0.5, decimalPlaces = 1,
+		min = 1,
+		max = 16,
+		step = 0.5,
+		jump = 0.5,
+		decimalPlaces = 1,
 		variable = mwse.mcm.createTableVariable({ id = "axeOneHand", table = mult }),
 	})
 	weapons:createSlider({
 		label = "Axe (2H): Battle Axe, War Axe",
 		description = nonLethalNote,
-		min = 1, max = 16, step = 0.5, jump = 0.5, decimalPlaces = 1,
+		min = 1,
+		max = 16,
+		step = 0.5,
+		jump = 0.5,
+		decimalPlaces = 1,
 		variable = mwse.mcm.createTableVariable({ id = "axeTwoHand", table = mult }),
 	})
 
@@ -411,19 +485,31 @@ local function registerModConfig()
 	weapons:createSlider({
 		label = "Bow: Short Bow, Long Bow",
 		description = nonLethalNote,
-		min = 1, max = 16, step = 0.5, jump = 0.5, decimalPlaces = 1,
+		min = 1,
+		max = 16,
+		step = 0.5,
+		jump = 0.5,
+		decimalPlaces = 1,
 		variable = mwse.mcm.createTableVariable({ id = "marksmanBow", table = mult }),
 	})
 	weapons:createSlider({
 		label = "Crossbow",
 		description = nonLethalNote,
-		min = 1, max = 16, step = 0.5, jump = 0.5, decimalPlaces = 1,
+		min = 1,
+		max = 16,
+		step = 0.5,
+		jump = 0.5,
+		decimalPlaces = 1,
 		variable = mwse.mcm.createTableVariable({ id = "marksmanCrossbow", table = mult }),
 	})
 	weapons:createSlider({
 		label = "Thrown: Dart, Throwing Star, Throwing Knife",
 		description = nonLethalNote,
-		min = 1, max = 16, step = 0.5, jump = 0.5, decimalPlaces = 1,
+		min = 1,
+		max = 16,
+		step = 0.5,
+		jump = 0.5,
+		decimalPlaces = 1,
 		variable = mwse.mcm.createTableVariable({ id = "marksmanThrown", table = mult }),
 	})
 

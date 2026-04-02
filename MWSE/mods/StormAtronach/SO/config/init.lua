@@ -32,6 +32,7 @@ local default = {
 	-- Stealth bar / marker display
 	crosshairColorEnabled = true,
 	keepVanillaCrosshair = false,
+	crosshairSize = 4.0,
 	crosshairAnimated = true,
 	crosshairOpenSpeed = 6,
 	crosshairCloseSpeed = 6,
