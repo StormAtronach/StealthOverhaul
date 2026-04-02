@@ -32,6 +32,9 @@ local default = {
 	-- Stealth bar / marker display
 	crosshairColorEnabled = true,
 	keepVanillaCrosshair = false,
+	crosshairAnimated = true,
+	crosshairOpenSpeed = 6,
+	crosshairCloseSpeed = 6,
 	fillbarEnabled = false,
 	markerEnabled = true,
 	barRange = 2000, -- bars/markers only shown within this distance (units)

@@ -196,6 +196,30 @@ local function registerModConfig()
 		configKey = "keepVanillaCrosshair",
 	})
 
+	hud:createYesNoButton({
+		label = "Animate Crosshair Transitions",
+		description = "When enabled, the sneak eye animates smoothly between stages as suspicion crosses each threshold. When disabled, it snaps instantly.",
+		configKey = "crosshairAnimated",
+	})
+
+	hud:createSlider({
+		label = "Crosshair Opening Speed",
+		description = "How fast the eye opens as suspicion rises. Higher values produce faster transitions. Default (6) gives approximately 0.5s per stage.",
+		min = 1,
+		max = 20,
+		step = 1,
+		configKey = "crosshairOpenSpeed",
+	})
+
+	hud:createSlider({
+		label = "Crosshair Closing Speed",
+		description = "How fast the eye closes as suspicion falls. Higher values produce faster transitions. Default (6) gives approximately 0.5s per stage.",
+		min = 1,
+		max = 20,
+		step = 1,
+		configKey = "crosshairCloseSpeed",
+	})
+
 	hud:createCategory({ label = "Suspicion Indicators" })
 
 	hud:createYesNoButton({
