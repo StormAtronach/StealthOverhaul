@@ -64,6 +64,10 @@ local weaponSkillStats = {
 	marksmanThrown = "marksman",
 }
 
+-- Message queued in attackHit, shown in damaged (after other mods have applied their modifiers).
+local pendingSneakMessage = nil
+local pendingSneakTarget = nil ---@type tes3reference|nil
+
 --- Set hit chance to 100 on a sneak strike.
 ---@param e calcHitChanceEventData
 local function sneakAttack(e)
@@ -92,8 +96,7 @@ local function attackHitCallback(e)
 	if not e.targetMobile then
 		return
 	end
-	if not (   e.targetMobile.actorType == tes3.actorType.creature
-			or e.targetMobile.actorType == tes3.actorType.npc) then
+	if not (e.targetMobile.actorType == tes3.actorType.creature or e.targetMobile.actorType == tes3.actorType.npc) then
 		return
 	end
 	if e.targetMobile.isPlayerDetected then
@@ -157,8 +160,25 @@ local function attackHitCallback(e)
 		end
 	else
 		if config.showSneakStrikeMessage then
-			tes3.messageBox(string.format("Sneak attack! x%.1f damage", multiplier))
+			pendingSneakMessage = string.format("Sneak attack! x%.1f damage", multiplier)
+			pendingSneakTarget = e.targetReference
 		end
 	end
 end
 event.register(tes3.event.attackHit, attackHitCallback)
+
+--- Delaying the message here in case another mod intercepted it
+---@param e damagedEventData
+local function damagedCallback(e)
+	if not pendingSneakMessage then
+		return
+	end
+	local msg = pendingSneakMessage
+	local target = pendingSneakTarget
+	pendingSneakMessage = nil
+	pendingSneakTarget = nil
+	if e.attacker == tes3.mobilePlayer and e.reference == target and e.damage >= 1 then
+		tes3.messageBox(msg)
+	end
+end
+event.register(tes3.event.damaged, damagedCallback, { priority = -10000 })
