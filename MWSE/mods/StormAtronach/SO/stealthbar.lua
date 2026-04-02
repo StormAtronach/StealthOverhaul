@@ -10,21 +10,28 @@ local USE_FLIP_CONTROLLER = true
 
 local MARKER_FRAME_COUNT = 21
 
-local getMarkerTemplate -- forward declaration; defined below with the marker system
-
--- Crosshair: cloned sa_se.nif attached to nodeCursor, driven by the same flip controller as markers
-local crosshairNode = nil
+-- Crosshair: 21 UI image elements stacked inside MenuMulti; one visible at a time
+local crosshairFrames = {} -- [1..21] = tes3uiElement
 local crosshairActiveFrame = nil
 local crosshairDisplayFrame = nil -- float; smoothed toward target for animated transitions
+local crosshairParent = nil
 
 --- Map suspicion level to one of five discrete crosshair frames at fixed thresholds.
 ---@param suspicion number  0.0–1.0
 ---@return number  frame index (1 = open, 21 = closed)
 local function quantizeFrame(suspicion)
-	if suspicion >= 1.0  then return 1  end
-	if suspicion >= 0.75 then return 6  end
-	if suspicion >= 0.50 then return 11 end
-	if suspicion >= 0.25 then return 16 end
+	if suspicion >= 1.0 then
+		return 1
+	end
+	if suspicion >= 0.75 then
+		return 6
+	end
+	if suspicion >= 0.50 then
+		return 11
+	end
+	if suspicion >= 0.25 then
+		return 16
+	end
 	return 21
 end
 
@@ -38,53 +45,75 @@ local function setCrosshairFrame(frameIndex)
 	if frameIndex == crosshairActiveFrame then
 		return
 	end
+	-- Hide the previously active frame
+	if crosshairActiveFrame and crosshairFrames[crosshairActiveFrame] then
+		crosshairFrames[crosshairActiveFrame].visible = false
+	end
 	local vanillaNode = getVanillaCrosshairNode()
-	if frameIndex and crosshairNode then
-		crosshairNode.appCulled = false
-		local eye_plane = crosshairNode:getObjectByName("eye_plane")
-		local texProp = eye_plane.texturingProperty
-		texProp.controller.phase = 1 - (frameIndex - 1) / MARKER_FRAME_COUNT
+	if frameIndex and crosshairFrames[frameIndex] then
+		crosshairFrames[frameIndex].visible = true
 		if vanillaNode and not config.keepVanillaCrosshair then
 			vanillaNode.appCulled = true
 		end
 		log:trace("[crosshair] frame %d", frameIndex)
 	else
-		if crosshairNode then
-			crosshairNode.appCulled = true
-		end
 		if vanillaNode then
 			vanillaNode.appCulled = false
 		end
 	end
 	crosshairActiveFrame = frameIndex
+	if crosshairParent then
+		crosshairParent:updateLayout()
+	end
 end
 
 local function createCrosshair()
-	local cursor = tes3.worldController.nodeCursor
-	if not cursor then
-		log:debug("[crosshair] nodeCursor not available")
+	if tes3ui.menuMode() then
 		return
 	end
-	-- Drop stale reference; engine already cleaned up the old node on load
-	crosshairNode = nil
+	if crosshairParent == nil then
+		log:debug("[crosshair] no parent found, aborting crosshair creation")
+		return
+	end
+
+	local existing = crosshairParent:findChild("SA_SO_crosshair_block")
+	if existing then
+		existing:destroy()
+	end
+	crosshairFrames = {}
 	crosshairActiveFrame = nil
-	crosshairDisplayFrame = nil
 
-	local tmpl = getMarkerTemplate()
-	if not tmpl then return end
+	local block = crosshairParent:createBlock{ id = "SA_SO_crosshair_block" }
+	block.layoutOriginFractionX = 0.5
+	block.layoutOriginFractionY = 0.5
+	block.autoWidth = true
+	block.autoHeight = true
+	block.consumeMouseEvents = false
 
-	local node = tmpl:clone()
-	node.name = "SA_SO_Crosshair"
-	node.scale = config.crosshairSize
-	node.appCulled = true
+	local size = math.floor(32 * config.crosshairSize)
+	for i = 1, MARKER_FRAME_COUNT do
+		local img = block:createImage({ path = string.format("textures/sa_so_ch/%d.dds", i) })
+		img.visible = false
+		img.consumeMouseEvents = false
+		img.autoWidth = false
+		img.autoHeight = false
+		img.width = size
+		img.height = size
+		crosshairFrames[i] = img
+	end
 
-	cursor:attachChild(node)
-	cursor:update()
-	cursor:updateNodeEffects()
-
-	crosshairNode = node
-	log:debug("[crosshair] NIF crosshair attached to nodeCursor (scale=%.2f)", config.crosshairSize)
+	crosshairParent:updateLayout()
+	log:debug("[crosshair] UI overlay created with %d frames", MARKER_FRAME_COUNT)
 end
+
+local function onMenuMultiActivated(e)
+	if not e.newlyCreated then
+		return
+	end
+	crosshairParent = e.element
+	createCrosshair()
+end
+event.register("uiActivated", onMenuMultiActivated, { filter = "MenuMulti" })
 event.register("SA_SO_crosshairRecreate", createCrosshair)
 
 local BAR_WIDTH = 50
@@ -116,7 +145,7 @@ local function loadMarkerTextures()
 	return markerTextures
 end
 
-getMarkerTemplate = function()
+local function getMarkerTemplate()
 	if not markerTemplate then
 		markerTemplate = tes3.loadMesh(MARKER_MESH)
 		loadMarkerTextures()
@@ -253,6 +282,7 @@ local function getOrCreateBar(actorId)
 	local menuH = BAR_HEIGHT + 4
 
 	local barMenu = tes3ui.createHelpLayerMenu({ id = menuId, fixedFrame = true })
+	barMenu:destroyChildren()
 	barMenu.disabled = true -- don't intercept input
 	barMenu.color = { 0.05, 0.05, 0.05 }
 	barMenu.alpha = 0.85
@@ -287,6 +317,9 @@ local function destroyAllBars()
 	barPool = {}
 	displayState = {}
 	markerPool = {}
+	crosshairFrames = {}
+	crosshairActiveFrame = nil
+	crosshairDisplayFrame = nil
 	log:debug("Bar and marker pools reset on load")
 	createCrosshair()
 end
