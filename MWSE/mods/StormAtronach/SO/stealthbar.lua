@@ -13,7 +13,6 @@ local MARKER_FRAME_COUNT = 21
 -- Crosshair: 21 UI image elements stacked inside MenuMulti; one visible at a time
 local crosshairFrames = {} -- [1..21] = tes3uiElement
 local crosshairActiveFrame = nil
-local crosshairIsRed = false
 local crosshairDisplayFrame = nil -- float; smoothed toward target for animated transitions
 local crosshairParent = nil
 
@@ -34,32 +33,27 @@ local function getVanillaCrosshairNode()
 end
 
 ---@param frameIndex number|nil  1–21 to show that frame, nil to hide all
----@param isRed boolean|nil  true to tint red (full detection)
-local function setCrosshairFrame(frameIndex, isRed)
-	isRed = isRed == true
-	if frameIndex == crosshairActiveFrame and isRed == crosshairIsRed then
+local function setCrosshairFrame(frameIndex)
+	if frameIndex == crosshairActiveFrame then
 		return
 	end
-	-- Hide and reset color of the previously active frame
+	-- Hide the previously active frame
 	if crosshairActiveFrame and crosshairFrames[crosshairActiveFrame] then
 		crosshairFrames[crosshairActiveFrame].visible = false
-		crosshairFrames[crosshairActiveFrame].color = { 1, 1, 1 }
 	end
 	local vanillaNode = getVanillaCrosshairNode()
 	if frameIndex and crosshairFrames[frameIndex] then
 		crosshairFrames[frameIndex].visible = true
-		crosshairFrames[frameIndex].color = isRed and { 1, 0, 0 } or { 1, 1, 1 }
 		if vanillaNode and not config.keepVanillaCrosshair then
 			vanillaNode.appCulled = true
 		end
-		log:trace("[crosshair] frame %d red=%s", frameIndex, tostring(isRed))
+		log:trace("[crosshair] frame %d", frameIndex)
 	else
 		if vanillaNode then
 			vanillaNode.appCulled = false
 		end
 	end
 	crosshairActiveFrame = frameIndex
-	crosshairIsRed = isRed
 	if crosshairParent then
 		crosshairParent:updateLayout()
 	end
@@ -171,8 +165,7 @@ local function attachMarker(ref, actorId)
 	local shape = node:getObjectByName("eye_plane") --[[@as niTriShape]]
 	local texProp = shape and shape:getProperty(ni.propertyType.texturing) --[[@as niTexturingProperty]]
 	local flipCtrl = shape and shape.controller --[[@as niTimeController]]
-	local matProp = shape and shape:getProperty(ni.propertyType.material) --[[@as niMaterialProperty]]
-	markerPool[actorId] = { node = node, ref = ref, texProp = texProp, flipCtrl = flipCtrl, matProp = matProp }
+	markerPool[actorId] = { node = node, ref = ref, texProp = texProp, flipCtrl = flipCtrl }
 	log:debug("Attached sneak eye marker to %s", actorId)
 	return node
 end
@@ -311,7 +304,6 @@ local function destroyAllBars()
 	markerPool = {}
 	crosshairFrames = {}
 	crosshairActiveFrame = nil
-	crosshairIsRed = false
 	crosshairDisplayFrame = nil
 	log:debug("Bar and marker pools reset on load")
 	createCrosshair()
@@ -355,10 +347,10 @@ local function onSimulate(e)
 			crosshairDisplayFrame = crosshairDisplayFrame + (targetFrame - crosshairDisplayFrame) * alpha
 			frameIndex = math.clamp(math.round(crosshairDisplayFrame), 1, MARKER_FRAME_COUNT)
 		end
-		setCrosshairFrame(frameIndex, maxSuspicion >= 1.0)
+		setCrosshairFrame(frameIndex)
 	else
 		crosshairDisplayFrame = nil
-		setCrosshairFrame(nil, false)
+		setCrosshairFrame(nil)
 	end
 
 	if tes3ui.menuMode() then
@@ -415,14 +407,6 @@ local function onSimulate(e)
 					if entry.texProp and textures[frameIndex] then
 						entry.texProp.maps[1].texture = textures[frameIndex]
 					end
-				end
-				-- Tint red when fully detected, reset otherwise
-				if entry.matProp then
-					local isDetected = (detection.suspicion[actorId] or 0) >= 1.0
-					local em = entry.matProp.emissive
-					em.r = isDetected and 1 or 0
-					em.g = 0
-					em.b = 0
 				end
 			end
 		elseif markerPool[actorId] then
