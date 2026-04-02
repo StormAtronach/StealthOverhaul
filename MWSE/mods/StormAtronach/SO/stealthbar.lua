@@ -68,9 +68,6 @@ local function setCrosshairFrame(frameIndex)
 end
 
 local function createCrosshair()
-	if tes3ui.menuMode() then
-		return
-	end
 	if crosshairParent == nil then
 		log:debug("[crosshair] no parent found, aborting crosshair creation")
 		return
@@ -84,15 +81,19 @@ local function createCrosshair()
 	crosshairActiveFrame = nil
 
 	local block = crosshairParent:createBlock{ id = "SA_SO_crosshair_block" }
+	block.absolutePosAlignX = 0.5
+	block.absolutePosAlignY = 0.5
 	block.layoutOriginFractionX = 0.5
 	block.layoutOriginFractionY = 0.5
-	block.autoWidth = true
-	block.autoHeight = true
+	block.autoWidth = false
+	block.autoHeight = false
+	block.width = config.crosshairSize
+	block.height = config.crosshairSize
 	block.consumeMouseEvents = false
 
-	local size = math.floor(32 * config.crosshairSize)
+	local size = config.crosshairSize
 	for i = 1, MARKER_FRAME_COUNT do
-		local img = block:createImage({ path = string.format("textures/sa_so_ch/%d.dds", i) })
+		local img = block:createImage({ path = string.format("textures/sa_so_ch_%d/%d.dds", size, i) })
 		img.visible = false
 		img.consumeMouseEvents = false
 		img.autoWidth = false

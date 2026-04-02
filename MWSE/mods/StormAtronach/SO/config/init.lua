@@ -32,7 +32,7 @@ local default = {
 	-- Stealth bar / marker display
 	crosshairColorEnabled = true,
 	keepVanillaCrosshair = false,
-	crosshairSize = 4.0,
+	crosshairSize = 64,
 	crosshairAnimated = true,
 	crosshairOpenSpeed = 6,
 	crosshairCloseSpeed = 6,
@@ -77,6 +77,12 @@ local config = mwse.loadConfig(fileName, default) --[[@as template.config]]
 -- Migrate stale flat sneakSkillMult value (was a number in older versions)
 if type(config.sneakSkillMult) ~= "table" then
 	config.sneakSkillMult = default.sneakSkillMult
+end
+
+-- Migrate stale crosshairSize value (was a float multiplier in older versions)
+local validCrosshairSizes = { [32] = true, [64] = true, [128] = true }
+if not validCrosshairSizes[config.crosshairSize] then
+	config.crosshairSize = 32
 end
 
 config.version = "2.0.0"

@@ -190,14 +190,14 @@ local function registerModConfig()
 		configKey = "crosshairColorEnabled",
 	})
 
-	hud:createSlider({
+	hud:createDropdown({
 		label = "Sneak Eye Size",
-		description = "Size multiplier for the sneak eye crosshair. Base size is 32x32 pixels.",
-		min = 0.5,
-		max = 10,
-		step = 0.1,
-		jump = 1,
-		decimalPlaces = 1,
+		description = "Pixel size of the sneak eye crosshair. Larger values require higher-resolution textures.",
+		options = {
+			{ label = "32",  value = 32  },
+			{ label = "64",  value = 64  },
+			{ label = "128", value = 128 },
+		},
 		configKey = "crosshairSize",
 		callback = function()
 			event.trigger("SA_SO_crosshairRecreate")
