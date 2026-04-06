@@ -157,8 +157,8 @@ local function computeDetectionRate(detector, distance, actorId)
 	------------------------------------------------------------------------------------------------------------------------------------
 	-- TODO: Make a standing still negative effect so that the player can hide. Maybe even check for raytest every few frames to see if one can hide behind things.
 	------------------------------------------------------------------------------------------------------------------------------------
-	if standStillMult <= 0.8 and math.abs(angle) > 100 then
-		rate = rate - 0.2
+	if standStillMult <= 0.8 then
+		rate = rate - (0.5 * (angleFactor - 0.1))
 	end
 
 	local now = os.clock()
@@ -225,6 +225,7 @@ local function detectSneakCallback(e)
 	if not mp.isSneaking and mp.chameleon <= 0 and mp.invisibility <= 0 then
 		return
 	end
+
 	if e.detector.inCombat then
 		return
 	end
@@ -243,6 +244,7 @@ local function detectSneakCallback(e)
 	-- Compute detection rate and store for the simulate loop
 	local distance = detector.reference.position:distance(tes3.player.position)
 	local rate = computeDetectionRate(detector, distance, actorId)
+
 	detectionState[actorId] = { rate = rate, lastUpdate = os.clock() }
 	log:trace("[detectSneak] %s distance=%.0f rate=%.4f/s", actorId, distance, rate)
 
@@ -313,6 +315,16 @@ local function onSimulate(e)
 		local current = detection.suspicion[actorId] or 0
 		local state = detectionState[actorId]
 
+		local inCombat = state and state.inCombat or false
+
+		if inCombat then
+			local combatStarted = state.combatStarted
+			if os.clock() - combatStarted <= 5 then
+				tes3.messageBox("Waiting for combat timer to go down")
+				return
+			end
+		end
+
 		-- Actor is active if a detectSneak tick arrived recently; stale = left range
 		local isStale = not state or (os.clock() - state.lastUpdate) >= staleThreshold
 		local active = not isStale
@@ -328,10 +340,19 @@ local function onSimulate(e)
 			if current > 0 then
 				log:trace("Suspicion ↓ for %s: %.3f (-%.4f/frame)", actorId, current, dv * dt)
 			end
+			if inCombat then
+				tes3.messageBox("Decaying combat")
+				tes3.messageBox(string.format("Suspicion ↓ for %s: %.3f (-%.4f/frame)", actorId, current, dv * dt))
+			end
 		end
 
 		-- Clean up fully decayed actors
 		if current <= 0 and not active then
+			if inCombat then
+				tes3.messageBox("Stopping combat")
+				tes3.getReference(actorId).mobile:stopCombat()
+			end
+			
 			detection.suspicion[actorId] = nil
 			detectionState[actorId] = nil
 			sneakChanceLogTime[actorId] = nil
@@ -339,12 +360,26 @@ local function onSimulate(e)
 				decayTimers[actorId]:cancel()
 				decayTimers[actorId] = nil
 			end
-		else
-			detection.suspicion[actorId] = current
 		end
 	end
 end
 event.register(tes3.event.simulate, onSimulate)
+
+-- ADDED BY ROBIN AS TEST
+local function onCombatStarted(e) 
+	if e.target ~= tes3.mobilePlayer then 
+		return 
+	end
+
+	if e.actor == nil then
+		return
+	end
+	tes3.messageBox("On Combat Started!")
+	local actorId = e.actor.reference.id
+	detection.suspicion[actorId] = 1
+	detectionState[actorId] = {rate = detectionState[actorId] and detectionState[actorId].rate or 0, lastUpdate = os.clock(), inCombat = true, combatStarted = os.clock()}
+end
+event.register(tes3.event.combatStarted, onCombatStarted)
 
 --- Returns the current suspicion level (0.0–1.0) for the given actor ID.
 ---@param actorId string
