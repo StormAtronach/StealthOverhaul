@@ -15,7 +15,6 @@ local crosshairFrames = {} -- [1..21] = tes3uiElement
 local crosshairActiveFrame = nil
 local crosshairDisplayFrame = nil -- float; smoothed toward target for animated transitions
 local crosshairParent = nil
-local vanillaCulledByUs = false
 
 --- Map suspicion level to one of five discrete crosshair frames at fixed thresholds.
 ---@param suspicion number  0.0–1.0
@@ -53,15 +52,13 @@ local function setCrosshairFrame(frameIndex)
 	local vanillaNode = getVanillaCrosshairNode()
 	if frameIndex and crosshairFrames[frameIndex] then
 		crosshairFrames[frameIndex].visible = true
-		if vanillaNode and not config.keepVanillaCrosshair and not vanillaNode.appCulled then
+		if vanillaNode and not config.keepVanillaCrosshair then
 			vanillaNode.appCulled = true
-			vanillaCulledByUs = true
 		end
 		log:trace("[crosshair] frame %d", frameIndex)
 	else
-		if vanillaNode and vanillaCulledByUs then
+		if vanillaNode then
 			vanillaNode.appCulled = false
-			vanillaCulledByUs = false
 		end
 	end
 	crosshairActiveFrame = frameIndex

@@ -134,7 +134,11 @@ local function computeDetectionRate(detector, distance, actorId)
 	-- Angle factor: continuous from 0.25 (directly behind NPC) to 1.0 (face-on)
 	-- getViewToActor: 0 = directly in front, ±180 = directly behind
 	local angle = detector:getViewToActor(player)
-	local angleFactor = 0.25 + 0.75 * (1 + math.cos(math.rad(angle))) / 2
+
+	------------------------------------------------------------------------------------------------------------------------------------
+	-- TODO: Change the angle factor to be more allowing from very much behind, and then increase in difficulty for completely forward.
+	------------------------------------------------------------------------------------------------------------------------------------
+	local angleFactor = 0.1 + 1 * (1 + math.cos(math.rad(angle))) / 2
 
 	local rawRate = distanceFactor * angleFactor
 
@@ -150,6 +154,12 @@ local function computeDetectionRate(detector, distance, actorId)
 	local rate = math.clamp(modifiedRate * (1 - chameleon / 100), config.detFloor, config.detCap)
 
 	if tes3.mobilePlayer.invisibility > 0 then rate = config.detFloor end
+	------------------------------------------------------------------------------------------------------------------------------------
+	-- TODO: Make a standing still negative effect so that the player can hide. Maybe even check for raytest every few frames to see if one can hide behind things.
+	------------------------------------------------------------------------------------------------------------------------------------
+	if standStillMult <= 0.8 and math.abs(angle) > 100 then
+		rate = rate - 0.2
+	end
 
 	local now = os.clock()
 	if (now - (sneakChanceLogTime[actorId] or 0)) >= 0.25 then
