@@ -15,6 +15,9 @@ local detectionState = {}
 -- Per-actor decay delay timers: while a timer is alive, decay is suppressed.
 local decayTimers = {}
 
+-- Per-actor timers to check how often a combatant should check if they see the player.
+local combatDetectionCheckTimers = {}
+
 -- Throttle for sneak chance debug logging: [actorId] = last log time (os.clock())
 local sneakChanceLogTime = {}
 
@@ -38,6 +41,22 @@ local function restartDecayTimer(actorId)
 		iterations = 1,
 		callback = function()
 			decayTimers[actorId] = nil
+		end,
+	})
+end
+
+--- Restart the per-actor combat detection timer.
+---@param actorId string
+local function restartCombatDetectionCheckTimers(actorId)
+	if combatDetectionCheckTimers[actorId] then
+		combatDetectionCheckTimers[actorId]:cancel()
+	end
+	combatDetectionCheckTimers[actorId] = timer.start({
+		type = timer.simulate,
+		duration = config.suspicionDecayDelay,
+		iterations = 1,
+		callback = function()
+			combatDetectionCheckTimers[actorId] = nil
 		end,
 	})
 end
@@ -77,6 +96,18 @@ local function checkPlayerLight()
 	end
 end
 
+local function generateIdles()
+	local idles = {}
+	for i = 1, 4 do
+		idles[i] = math.random(0, 60)
+	end
+	idles[5] = 0
+	for i = 6, 8 do
+		idles[i] = math.random(0, 60)
+	end
+	return idles
+end
+
 ---@param e cellChangedEventData
 local function onCellChanged(e)
 	playerInLight = false
@@ -95,6 +126,11 @@ local function onLoad()
 	for _, t in pairs(decayTimers) do
 		t:cancel()
 	end
+
+	for _, t in pairs(combatDetectionCheckTimers) do
+		t:cancel()
+	end
+
 	if lightCheckTimer then
 		lightCheckTimer:cancel()
 		lightCheckTimer = nil
@@ -102,6 +138,7 @@ local function onLoad()
 	detection.suspicion = {}
 	detectionState = {}
 	decayTimers = {}
+	combatDetectionCheckTimers = {}
 	sneakChanceLogTime = {}
 	lightSources = {}
 	playerInLight = false
@@ -211,6 +248,7 @@ local function onSkillRaised(e)
 end
 event.register(tes3.event.skillRaised, onSkillRaised)
 
+
 --- detectSneak fires per actor per AI tick.
 --- We only record vanilla's detection state here; accumulation happens in simulate.
 ---@param e detectSneakEventData
@@ -227,7 +265,7 @@ local function detectSneakCallback(e)
 	end
 
 	if e.detector.inCombat then
-		return
+		handleDetectionInCombat(e)
 	end
 
 	local detectorType = e.detector.actorType
@@ -244,8 +282,12 @@ local function detectSneakCallback(e)
 	-- Compute detection rate and store for the simulate loop
 	local distance = detector.reference.position:distance(tes3.player.position)
 	local rate = computeDetectionRate(detector, distance, actorId)
+	local state = detectionState[actorId] or {}
+	state.rate = rate
+	state.lastUpdate = os.clock()
 
-	detectionState[actorId] = { rate = rate, lastUpdate = os.clock() }
+	detectionState[actorId] = state
+	
 	log:trace("[detectSneak] %s distance=%.0f rate=%.4f/s", actorId, distance, rate)
 
 	-- Override vanilla with our accumulator-based result
@@ -314,22 +356,27 @@ local function onSimulate(e)
 	for actorId in pairs(toProcess) do
 		local current = detection.suspicion[actorId] or 0
 		local state = detectionState[actorId]
-
 		local inCombat = state and state.inCombat or false
+		-- Actor is active if a detectSneak tick arrived recently; stale = left range
+		
+		local inCombatDecayCooldown = false
 
 		if inCombat then
 			local combatStarted = state.combatStarted
 			if os.clock() - combatStarted <= 5 then
 				tes3.messageBox("Waiting for combat timer to go down")
-				return
+				restartDecayTimer(actorId)
+				state.lastUpdate = os.clock()
+				current = 1
+				inCombatDecayCooldown = true
+
 			end
 		end
 
-		-- Actor is active if a detectSneak tick arrived recently; stale = left range
 		local isStale = not state or (os.clock() - state.lastUpdate) >= staleThreshold
 		local active = not isStale
 
-		if active then
+		if active and not inCombatDecayCooldown then
 			local rate = state.rate or config.detFloor
 			local delta = rate * dt / config.fillTime
 			current = math.min(1.0, current + delta)
@@ -340,17 +387,22 @@ local function onSimulate(e)
 			if current > 0 then
 				log:trace("Suspicion ↓ for %s: %.3f (-%.4f/frame)", actorId, current, dv * dt)
 			end
-			if inCombat then
-				tes3.messageBox("Decaying combat")
-				tes3.messageBox(string.format("Suspicion ↓ for %s: %.3f (-%.4f/frame)", actorId, current, dv * dt))
-			end
 		end
+
 
 		-- Clean up fully decayed actors
 		if current <= 0 and not active then
 			if inCombat then
 				tes3.messageBox("Stopping combat")
-				tes3.getReference(actorId).mobile:stopCombat()
+				local ref = tes3.getReference(actorId)
+				local mob = ref.mobile or false
+				if mob then
+					-- Stop combat
+					mob:stopCombat(true)
+
+					local wanderRange = mob.cell.isOrBehavesAsExterior and 2000 or 500
+					tes3.setAIWander({ reference = ref, range = wanderRange, reset = true, idles = generateIdles() })
+				end
 			end
 			
 			detection.suspicion[actorId] = nil
@@ -360,12 +412,18 @@ local function onSimulate(e)
 				decayTimers[actorId]:cancel()
 				decayTimers[actorId] = nil
 			end
+			if combatDetectionCheckTimers[actorId] then
+				combatDetectionCheckTimers[actorId]:cancel()
+				combatDetectionCheckTimers[actorId] = nil
+			end
+		else
+			detection.suspicion[actorId] = current
 		end
 	end
 end
 event.register(tes3.event.simulate, onSimulate)
 
--- ADDED BY ROBIN AS TEST
+-- TESTING BY ROBIN
 local function onCombatStarted(e) 
 	if e.target ~= tes3.mobilePlayer then 
 		return 
@@ -376,8 +434,23 @@ local function onCombatStarted(e)
 	end
 	tes3.messageBox("On Combat Started!")
 	local actorId = e.actor.reference.id
-	detection.suspicion[actorId] = 1
+	--detection.suspicion[actorId] = 1
 	detectionState[actorId] = {rate = detectionState[actorId] and detectionState[actorId].rate or 0, lastUpdate = os.clock(), inCombat = true, combatStarted = os.clock()}
+end
+event.register(tes3.event.combatStarted, onCombatStarted)
+
+local function onCombatStarted(e)
+    if e.target ~= tes3.mobilePlayer then return end
+    if not e.actor then return end
+
+    local actorId = e.actor.reference.id
+    local state = detectionState[actorId] or {}
+
+    state.inCombat = true
+    state.combatStarted = os.clock()
+    state.lastUpdate = os.clock()
+
+    detectionState[actorId] = state
 end
 event.register(tes3.event.combatStarted, onCombatStarted)
 
@@ -405,6 +478,10 @@ function detection.clearSuspicion(actorId)
 	if decayTimers[actorId] then
 		decayTimers[actorId]:cancel()
 		decayTimers[actorId] = nil
+	end
+	if combatDetectionCheckTimers[actorId] then
+		combatDetectionCheckTimers[actorId]:cancel()
+		combatDetectionCheckTimers[actorId] = nil
 	end
 end
 
