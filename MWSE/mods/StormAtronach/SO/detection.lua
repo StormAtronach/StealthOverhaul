@@ -53,10 +53,11 @@ local function restartCombatDetectionCheckTimers(actorId)
 	end
 	combatDetectionCheckTimers[actorId] = timer.start({
 		type = timer.simulate,
-		duration = config.suspicionDecayDelay,
+		duration = 1,
 		iterations = 1,
 		callback = function()
 			combatDetectionCheckTimers[actorId] = nil
+			tes3.messageBox("Combat Detection Timer OFF")
 		end,
 	})
 end
@@ -265,7 +266,7 @@ local function detectSneakCallback(e)
 	end
 
 	if e.detector.inCombat then
-		handleDetectionInCombat(e)
+		return
 	end
 
 	local detectorType = e.detector.actorType
@@ -363,13 +364,35 @@ local function onSimulate(e)
 
 		if inCombat then
 			local combatStarted = state.combatStarted
-			if os.clock() - combatStarted <= 5 then
-				tes3.messageBox("Waiting for combat timer to go down")
+			if os.clock() - combatStarted <= 3 then
+				--tes3.messageBox(string.format("Combat timer: %f", os.clock() - combatStarted))
 				restartDecayTimer(actorId)
 				state.lastUpdate = os.clock()
 				current = 1
 				inCombatDecayCooldown = true
-
+				if not combatDetectionCheckTimers[actorId] then
+					restartCombatDetectionCheckTimers(actorId)
+					local ref = tes3.getReference(actorId)
+					local distance = ref.position:distance(tes3.player.position)
+					if distance < config.baseRange * 2 then
+						tes3.messageBox("Do raytest")
+						local directionToActor =  ref.mobile.position - tes3.mobilePlayer.position
+						local hit = tes3.rayTest({
+							position = tes3.mobilePlayer.position,
+							direction = directionToActor:normalized(),
+							maxDistance = config.baseRange * 2,
+							ignore = { tes3.player }
+						})
+						if hit then
+							if hit.reference == ref then
+								tes3.messageBox("Player is seen!")
+								state.combatStarted = os.clock()
+							else
+								tes3.messageBox("Player is not seen!")
+							end
+						end
+					end
+				end
 			end
 		end
 
@@ -486,3 +509,5 @@ function detection.clearSuspicion(actorId)
 end
 
 return detection
+
+
