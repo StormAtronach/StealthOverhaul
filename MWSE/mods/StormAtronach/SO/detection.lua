@@ -365,7 +365,6 @@ local function onSimulate(e)
 		if inCombat then
 			local combatStarted = state.combatStarted
 			if os.clock() - combatStarted <= 3 then
-				--tes3.messageBox(string.format("Combat timer: %f", os.clock() - combatStarted))
 				restartDecayTimer(actorId)
 				state.lastUpdate = os.clock()
 				current = 1
@@ -375,21 +374,9 @@ local function onSimulate(e)
 					local ref = tes3.getReference(actorId)
 					local distance = ref.position:distance(tes3.player.position)
 					if distance < config.baseRange * 2 then
-						tes3.messageBox("Do raytest")
-						local directionToActor =  ref.mobile.position - tes3.mobilePlayer.position
-						local hit = tes3.rayTest({
-							position = tes3.mobilePlayer.position,
-							direction = directionToActor:normalized(),
-							maxDistance = config.baseRange * 2,
-							ignore = { tes3.player }
-						})
-						if hit then
-							if hit.reference == ref then
-								tes3.messageBox("Player is seen!")
-								state.combatStarted = os.clock()
-							else
-								tes3.messageBox("Player is not seen!")
-							end
+						local playerSeen = tes3.testLineOfSight({ reference1 = ref, reference2 = tes3.player})
+						if playerSeen then
+							state.combatStarted = os.clock()
 						end
 					end
 				end
@@ -412,22 +399,17 @@ local function onSimulate(e)
 			end
 		end
 
-
 		-- Clean up fully decayed actors
 		if current <= 0 and not active then
 			if inCombat then
-				tes3.messageBox("Stopping combat")
 				local ref = tes3.getReference(actorId)
 				local mob = ref.mobile or false
 				if mob then
-					-- Stop combat
 					mob:stopCombat(true)
-
 					local wanderRange = mob.cell.isOrBehavesAsExterior and 2000 or 500
 					tes3.setAIWander({ reference = ref, range = wanderRange, reset = true, idles = generateIdles() })
 				end
 			end
-			
 			detection.suspicion[actorId] = nil
 			detectionState[actorId] = nil
 			sneakChanceLogTime[actorId] = nil
@@ -439,7 +421,7 @@ local function onSimulate(e)
 				combatDetectionCheckTimers[actorId]:cancel()
 				combatDetectionCheckTimers[actorId] = nil
 			end
-		else
+		else --If still running, just set the updated value
 			detection.suspicion[actorId] = current
 		end
 	end
