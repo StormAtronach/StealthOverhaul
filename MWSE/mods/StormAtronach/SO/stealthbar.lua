@@ -84,14 +84,10 @@ local function createCrosshair()
 	crosshairActiveFrame = nil
 
 	local block = crosshairParent:createBlock{ id = "SA_SO_crosshair_block" }
-	block.absolutePosAlignX = 0.5
-	block.absolutePosAlignY = 0.5
 	block.layoutOriginFractionX = 0.5
 	block.layoutOriginFractionY = 0.5
-	block.autoWidth = false
-	block.autoHeight = false
-	block.width = config.crosshairSize
-	block.height = config.crosshairSize
+	block.autoWidth = true
+	block.autoHeight = true
 	block.consumeMouseEvents = false
 
 	local size = config.crosshairSize
@@ -99,10 +95,9 @@ local function createCrosshair()
 		local img = block:createImage({ path = string.format("textures/sa_so_ch_%d/%d.dds", size, i) })
 		img.visible = false
 		img.consumeMouseEvents = false
-		img.autoWidth = false
-		img.autoHeight = false
-		img.width = size
-		img.height = size
+		img.scaleMode = true
+		img.width = size * config.crosshairScale
+		img.height = size * config.crosshairScale
 		crosshairFrames[i] = img
 	end
 

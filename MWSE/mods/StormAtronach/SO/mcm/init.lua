@@ -204,6 +204,19 @@ local function registerModConfig()
 		end,
 	})
 
+	hud:createSlider({
+		label = "Sneak Eye Scale",
+		description = "The scale of the sneak eye crosshair. Larger value means scaling the image up, smaller means scaling down.",
+		min = 0.1,
+		max = 2,
+		step = 0.1,
+		decimalPlaces = 1,
+		configKey = "crosshairScale",
+		callback = function()
+			event.trigger("SA_SO_crosshairRecreate")
+		end,
+	})
+
 	hud:createYesNoButton({
 		label = "Keep Vanilla Crosshair",
 		description = "When enabled, the vanilla crosshair dot remains visible underneath the sneak eye overlay. When disabled, the vanilla crosshair is hidden while the sneak eye is active.",

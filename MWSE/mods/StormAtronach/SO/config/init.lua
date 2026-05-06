@@ -33,6 +33,7 @@ local default = {
 	crosshairColorEnabled = true,
 	keepVanillaCrosshair = false,
 	crosshairSize = 64,
+	crosshairScale = 1,
 	crosshairAnimated = true,
 	crosshairOpenSpeed = 6,
 	crosshairCloseSpeed = 6,

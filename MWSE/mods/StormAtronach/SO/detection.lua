@@ -195,9 +195,9 @@ local function computeDetectionRate(detector, distance, actorId)
 	------------------------------------------------------------------------------------------------------------------------------------
 	-- TODO: Make a standing still negative effect so that the player can hide. Maybe even check for raytest every few frames to see if one can hide behind things.
 	------------------------------------------------------------------------------------------------------------------------------------
-	if standStillMult <= 0.8 then
-		rate = rate - (0.5 * (angleFactor - 0.1))
-	end
+	--if standStillMult <= 0.8 then
+	--	rate = rate - (0.5 * (angleFactor - 0.1))
+	--end
 
 	local now = os.clock()
 	if (now - (sneakChanceLogTime[actorId] or 0)) >= 0.25 then
@@ -428,25 +428,12 @@ local function onSimulate(e)
 end
 event.register(tes3.event.simulate, onSimulate)
 
--- TESTING BY ROBIN
-local function onCombatStarted(e) 
-	if e.target ~= tes3.mobilePlayer then 
-		return 
-	end
-
-	if e.actor == nil then
-		return
-	end
-	tes3.messageBox("On Combat Started!")
-	local actorId = e.actor.reference.id
-	--detection.suspicion[actorId] = 1
-	detectionState[actorId] = {rate = detectionState[actorId] and detectionState[actorId].rate or 0, lastUpdate = os.clock(), inCombat = true, combatStarted = os.clock()}
-end
-event.register(tes3.event.combatStarted, onCombatStarted)
 
 local function onCombatStarted(e)
     if e.target ~= tes3.mobilePlayer then return end
     if not e.actor then return end
+
+	tes3.messageBox("On Combat Started!")
 
     local actorId = e.actor.reference.id
     local state = detectionState[actorId] or {}
