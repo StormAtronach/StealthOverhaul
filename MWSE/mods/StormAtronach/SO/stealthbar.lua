@@ -325,6 +325,13 @@ end
 
 event.register(tes3.event.loaded, destroyAllBars)
 
+
+local targetFade = 0
+local currentFade =  0
+local function lerp(start, goal, alpha)
+    return start + (goal - start)*alpha
+end
+
 ---@param e simulateEventData
 local function onSimulate(e)
 	-- Hide all bars and cull all markers first
@@ -339,6 +346,11 @@ local function onSimulate(e)
 	if not config.modEnabled then
 		setCrosshairFrame(nil)
 		return
+	end
+
+	local hiddenLastFrame = false
+	if crosshairDisplayFrame == nil then
+		hiddenLastFrame = true
 	end
 
 	-- Crosshair: quantized sneak eye with optional animated transitions
@@ -363,9 +375,26 @@ local function onSimulate(e)
 		end
 		setCrosshairFrame(frameIndex)
 	else
-		crosshairDisplayFrame = nil
-		setCrosshairFrame(nil)
+		local k = config.crosshairCloseSpeed
+		local alpha = 1 - math.exp(-k * dt)
+		local targetFrame = 21
+		crosshairDisplayFrame = crosshairDisplayFrame + (targetFrame - crosshairDisplayFrame) * alpha
+		setCrosshairFrame(math.clamp(math.round(crosshairDisplayFrame), 1, MARKER_FRAME_COUNT))
 	end
+
+	if tes3.mobilePlayer.isSneaking then
+		targetFade = 1
+	else
+		targetFade = 0
+	end
+
+	if crosshairParent then
+		currentFade = lerp(currentFade, targetFade, 1 - math.exp(-dt * 10))
+		if crosshairActiveFrame and crosshairFrames[crosshairActiveFrame] then
+			crosshairFrames[crosshairActiveFrame].alpha = currentFade
+		end
+	end
+
 
 	if tes3ui.menuMode() then
 		return
