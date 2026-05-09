@@ -57,7 +57,9 @@ local function restartCombatDetectionCheckTimers(actorId)
 		iterations = 1,
 		callback = function()
 			combatDetectionCheckTimers[actorId] = nil
-			tes3.messageBox("Combat Detection Timer OFF")
+			if log.level >= mwse.logLevel.debug then
+				tes3.messageBox("Combat Detection Timer OFF")
+			end
 		end,
 	})
 end
@@ -325,6 +327,8 @@ local function onSimulate(e)
 					local ref = mob.reference
 					if ref then
 						detection.suspicion[ref.id] = 1.0
+						local pm = tes3.worldController.mobManager.processManager
+						pm:detectSneak(mob, tes3.mobilePlayer, true)
 						log:debug("[sneak start] %s was already detected, suspicion set to 1.0", ref.id)
 					end
 				end
@@ -433,7 +437,10 @@ local function onCombatStarted(e)
     if e.target ~= tes3.mobilePlayer then return end
     if not e.actor then return end
 
-	tes3.messageBox("On Combat Started!")
+	if log.level >= mwse.logLevel.debug then
+		tes3.messageBox("On Combat Started!")
+	end
+	
 
     local actorId = e.actor.reference.id
     local state = detectionState[actorId] or {}
