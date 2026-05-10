@@ -184,7 +184,7 @@ local function computeDetectionRate(detector, distance, actorId)
 
 	-- Modifiers
 	local chameleon = player.chameleon or 0
-	local standStillMult = player.velocity:length() < 5 and 0.8 or 1.0
+	local standStillMult = player.velocity:length() < 5 and -0.2 or 1.0
 	local lightFactor = (config.lightMechanicEnabled and playerInLight) and config.lightRateMult or 1.0
 	local shoeFactor = 1 + player:getBootsWeight() / 50
 
