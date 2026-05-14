@@ -17,6 +17,9 @@ local crosshairDisplayFrame = nil -- float; smoothed toward target for animated 
 local crosshairParent = nil
 local vanillaCulledByUs = false
 
+local markerDisplayFrame = {} -- CHANGED: new per-NPC smoothing buffer
+local markerFade = {} 
+
 --- Map suspicion level to one of five discrete crosshair frames at fixed thresholds.
 ---@param suspicion number  0.0–1.0
 ---@return number  frame index (1 = open, 21 = closed)
@@ -125,7 +128,7 @@ local barPool = {}
 
 -- === 3-D suspicion marker (billboard sneak eye) ===
 local MARKER_MESH = "sa_so/sa_se.nif"
-local MARKER_Z = 140
+local MARKER_Z = 145
 
 -- [actorId] = { node = niNode, ref = tes3reference, texProp = niTexturingProperty, flipCtrl = niTimeController|nil }
 local markerPool = {}
@@ -185,7 +188,8 @@ local function attachMarker(ref, actorId)
 	local shape = node:getObjectByName("eye_plane") --[[@as niTriShape]]
 	local texProp = shape and shape:getProperty(ni.propertyType.texturing) --[[@as niTexturingProperty]]
 	local flipCtrl = shape and shape.controller --[[@as niTimeController]]
-	markerPool[actorId] = { node = node, ref = ref, texProp = texProp, flipCtrl = flipCtrl }
+	local materialProp = shape:getObjectByName("eye_alpha") --[[@as niMaterialProperty]]
+	markerPool[actorId] = { node = node, ref = ref, texProp = texProp, flipCtrl = flipCtrl, materialProp = materialProp}
 	log:debug("Attached sneak eye marker to %s", actorId)
 
 	return node
@@ -347,7 +351,8 @@ local function onSimulate(e)
 		bar.menu.visible = false
 	end
 	for _, entry in pairs(markerPool) do
-		entry.node.appCulled = true
+		local eye_plane = entry.node:getObjectByName("eye_plane")
+		entry.node.appCulled = eye_plane.materialProperty and (eye_plane.materialProperty.alpha <= 0.01) or true
 	end
 	local dt = e.delta
 
@@ -407,11 +412,9 @@ local function onSimulate(e)
 	if tes3ui.menuMode() then
 		return
 	end
+
 	local mp = tes3.mobilePlayer
 	if not mp then
-		return
-	end
-	if not mp.isSneaking then
 		return
 	end
 
@@ -437,18 +440,57 @@ local function onSimulate(e)
 		seenActors[actorId] = true
 
 		-- === 3-D marker ===
-		local pct = suspicionValue -- progress is already 0.0–1.0
+		local pct = suspicionValue
 		log:trace("[marker] %s pct=%.3f", actorId, pct)
+
 		if config.markerEnabled and suspicionValue > 0 then
 			local marker = attachMarker(ref, actorId)
 			if marker then
 				marker.appCulled = false
 				local entry = markerPool[actorId]
-				local frameIndex = math.clamp(math.floor(MARKER_FRAME_COUNT - pct * (MARKER_FRAME_COUNT - 1) + 0.5), 1,
-				                              MARKER_FRAME_COUNT)
+				local targetFrame
+				local actualSuspicion = detection.suspicion[actorId] or 0
+
+				if  actualSuspicion >= 1.0 then
+					targetFrame = 1 -- fully open
+				else
+					targetFrame = quantizeFrame(suspicionValue)
+				end
+
+				local fade = markerFade[actorId] or 0
+				local shouldShow = mp.isSneaking and (targetFrame <= 16)
+				local targetFade = shouldShow and 1 or 0
+
+				targetFrame = shouldShow and targetFrame or 21
+
+				fade = lerp(fade, targetFade, 1 - math.exp(-dt * 10))
+				markerFade[actorId] = fade
+
+				local eye_plane = entry.node:getObjectByName("eye_plane")
+
+				if eye_plane and eye_plane.materialProperty then
+					eye_plane.materialProperty.alpha = fade
+					eye_plane:updateProperties()
+					tes3.messageBox(string.format("Alpha value: %f", eye_plane.materialProperty.alpha))
+				end
+
+				local currentFrame = markerDisplayFrame[actorId] or targetFrame
+				local isOpening = targetFrame < currentFrame
+				local k = isOpening and config.crosshairOpenSpeed or config.crosshairCloseSpeed
+				local alpha = 1 - math.exp(-k * dt)
+				
+				currentFrame = currentFrame + (targetFrame - currentFrame) * alpha
+			
+				local frameIndex = math.clamp(math.round(currentFrame), 1, MARKER_FRAME_COUNT)
+				markerDisplayFrame[actorId] = currentFrame
+				
+				if fade <= 0.01 then
+					entry.node.appCulled = true
+					frameIndex = 21
+					markerDisplayFrame[actorId] = 21
+				end
+
 				if USE_FLIP_CONTROLLER then
-					-- NiFlipController path: map frame index to controller time and let node:update() apply it.
-					-- Frame 1 = time 0, frame 21 = time 20/21 (Stop Time = 1, SecsPerFrame = 1/21).
 					local ctrlTime = (frameIndex - 1) / MARKER_FRAME_COUNT
 					local eye_plane = entry.node:getObjectByName("eye_plane")
 					local texProp = eye_plane.texturingProperty
@@ -460,6 +502,7 @@ local function onSimulate(e)
 					end
 				end
 			end
+
 		elseif markerPool[actorId] then
 			-- Suspicion gone or disabled: cull and release the node
 			local entry = markerPool[actorId]
@@ -467,6 +510,7 @@ local function onSimulate(e)
 			ref.sceneNode:detachChild(entry.node)
 			ref.sceneNode:update()
 			markerPool[actorId] = nil
+			markerDisplayFrame[actorId] = 21
 			log:debug("Detached suspicion marker from %s (suspicion cleared)", actorId)
 		end
 
@@ -521,5 +565,15 @@ local function onSimulate(e)
 			displayState[actorId] = nil
 		end
 	end
+	for actorId in pairs(markerDisplayFrame) do
+    if not seenActors[actorId] then
+        markerDisplayFrame[actorId] = nil -- CHANGED
+    end
+	for actorId in pairs(markerFade) do
+    if not seenActors[actorId] then
+        markerFade[actorId] = nil
+    end
+end
+end
 end
 event.register(tes3.event.simulate, onSimulate)
