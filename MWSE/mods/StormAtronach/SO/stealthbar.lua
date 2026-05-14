@@ -170,6 +170,13 @@ local function attachMarker(ref, actorId)
 	node.translation = tes3vector3.new(0, 0, MARKER_Z)
 	node.appCulled = true
 
+	local weight = 1 / ref.object.weight
+	local height = 1 / ref.object.height
+	local scale = tes3vector3.new(weight, weight, height)
+
+	local r = node.rotation
+	node.rotation = tes3matrix33.new(r.x * scale, r.y * scale, r.z * scale)
+
 	ref.sceneNode:attachChild(node, true)
 	ref.sceneNode:update()
 	ref.sceneNode:updateNodeEffects()
@@ -180,6 +187,7 @@ local function attachMarker(ref, actorId)
 	local flipCtrl = shape and shape.controller --[[@as niTimeController]]
 	markerPool[actorId] = { node = node, ref = ref, texProp = texProp, flipCtrl = flipCtrl }
 	log:debug("Attached sneak eye marker to %s", actorId)
+
 	return node
 end
 
