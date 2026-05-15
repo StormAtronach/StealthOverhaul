@@ -323,7 +323,7 @@ local function onSimulate(e)
 		if nearby then
 			for _, mob in ipairs(nearby) do
 				---@cast mob tes3mobileActor
-				if mob ~= tes3.mobilePlayer and mob.isPlayerDetected then
+				if mob ~= tes3.mobilePlayer and tes3.testLineOfSight({ reference1 = mob.reference, reference2 = tes3.player})--[[and mob.isPlayerDetected]] then
 					local ref = mob.reference
 					if ref then
 						detection.suspicion[ref.id] = 1.0

@@ -364,6 +364,7 @@ local function onSimulate(e)
 	local hiddenLastFrame = false
 	if crosshairDisplayFrame == nil then
 		hiddenLastFrame = true
+		crosshairDisplayFrame = 21
 	end
 
 	-- Crosshair: quantized sneak eye with optional animated transitions
@@ -457,22 +458,31 @@ local function onSimulate(e)
 					targetFrame = quantizeFrame(suspicionValue)
 				end
 
-				local fade = markerFade[actorId] or 0
 				local shouldShow = mp.isSneaking and (targetFrame <= 16)
-				local targetFade = shouldShow and 1 or 0
-
 				targetFrame = shouldShow and targetFrame or 21
+			
+
+				local fade = markerFade[actorId] or 0
+				local targetFade = shouldShow and 1 or 0
 
 				fade = lerp(fade, targetFade, 1 - math.exp(-dt * 10))
 				markerFade[actorId] = fade
 
 				local eye_plane = entry.node:getObjectByName("eye_plane")
-
+				
 				if eye_plane and eye_plane.materialProperty then
 					eye_plane.materialProperty.alpha = fade
 					eye_plane:updateProperties()
 					tes3.messageBox(string.format("Alpha value: %f", eye_plane.materialProperty.alpha))
 				end
+
+				--local alphaProp = eye_plane.alphaProperty
+				--[[if alphaProp then
+					alphaProp.alphaTestRef = math.floor (255 * (1-fade))
+					eye_plane:updateProperties()
+					tes3.messageBox(string.format("Alpha value: %f", eye_plane.alphaProperty.alphaTestRef))
+				end]]
+				
 
 				local currentFrame = markerDisplayFrame[actorId] or targetFrame
 				local isOpening = targetFrame < currentFrame
