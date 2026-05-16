@@ -418,7 +418,6 @@ local function onSimulate(e)
 	end
 
 	local actors = tes3.findActorsInProximity({ reference = tes3.player, range = config.barRange })
-
 	-- Track which actors are in range this frame so we can clean up stale markers
 	local seenActors = {}
 
@@ -522,12 +521,12 @@ local function onSimulate(e)
 
 			if fade <= 0.01 then
 				local entry = markerPool[actorId]
-			entry.node.appCulled = true
-			ref.sceneNode:detachChild(entry.node)
-			ref.sceneNode:update()
-			markerPool[actorId] = nil
-			markerDisplayFrame[actorId] = 21
-			log:debug("Detached suspicion marker from %s (suspicion cleared)", actorId)
+				entry.node.appCulled = true
+				ref.sceneNode:detachChild(entry.node)
+				ref.sceneNode:update()
+				markerPool[actorId] = nil
+				markerDisplayFrame[actorId] = 21
+				log:debug("Detached suspicion marker from %s (suspicion cleared)", actorId)
 			end
 		end
 
@@ -583,14 +582,14 @@ local function onSimulate(e)
 		end
 	end
 	for actorId in pairs(markerDisplayFrame) do
-    if not seenActors[actorId] then
-        markerDisplayFrame[actorId] = nil -- CHANGED
-    end
+		if not seenActors[actorId] then
+			markerDisplayFrame[actorId] = nil -- CHANGED
+		end
+	end
 	for actorId in pairs(markerFade) do
-    if not seenActors[actorId] then
-        markerFade[actorId] = nil
-    end
-end
-end
+		if not seenActors[actorId] then
+			markerFade[actorId] = nil
+		end
+	end
 end
 event.register(tes3.event.simulate, onSimulate)
