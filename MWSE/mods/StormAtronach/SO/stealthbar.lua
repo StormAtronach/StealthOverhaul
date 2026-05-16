@@ -344,16 +344,14 @@ local function lerp(start, goal, alpha)
     return start + (goal - start)*alpha
 end
 
+
 ---@param e simulateEventData
 local function onSimulate(e)
 	-- Hide all bars and cull all markers first
 	for _, bar in pairs(barPool) do
 		bar.menu.visible = false
 	end
-	for _, entry in pairs(markerPool) do
-		local eye_plane = entry.node:getObjectByName("eye_plane")
-		entry.node.appCulled = eye_plane.materialProperty and (eye_plane.materialProperty.alpha <= 0.01) or true
-	end
+	
 	local dt = e.delta
 
 	if not config.modEnabled then
@@ -449,51 +447,43 @@ local function onSimulate(e)
 			if marker then
 				marker.appCulled = false
 				local entry = markerPool[actorId]
-				local targetFrame
+				local targetFrame = 21
 				local actualSuspicion = detection.suspicion[actorId] or 0
 
 				if  actualSuspicion >= 1.0 then
 					targetFrame = 1 -- fully open
 				else
-					targetFrame = quantizeFrame(suspicionValue)
+					targetFrame = quantizeFrame(suspicionValue) - 1
 				end
 
 				local shouldShow = mp.isSneaking and (targetFrame <= 16)
-				targetFrame = shouldShow and targetFrame or 21
-			
-
-				local fade = markerFade[actorId] or 0
 				local targetFade = shouldShow and 1 or 0
+				local fade = markerFade[actorId] or 0
 
 				fade = lerp(fade, targetFade, 1 - math.exp(-dt * 10))
 				markerFade[actorId] = fade
 
 				local eye_plane = entry.node:getObjectByName("eye_plane")
-				
 				if eye_plane and eye_plane.materialProperty then
 					eye_plane.materialProperty.alpha = fade
 					eye_plane:updateProperties()
-					tes3.messageBox(string.format("Alpha value: %f", eye_plane.materialProperty.alpha))
 				end
-
-				--local alphaProp = eye_plane.alphaProperty
-				--[[if alphaProp then
-					alphaProp.alphaTestRef = math.floor (255 * (1-fade))
-					eye_plane:updateProperties()
-					tes3.messageBox(string.format("Alpha value: %f", eye_plane.alphaProperty.alphaTestRef))
-				end]]
-				
 
 				local currentFrame = markerDisplayFrame[actorId] or targetFrame
 				local isOpening = targetFrame < currentFrame
-				local k = isOpening and config.crosshairOpenSpeed or config.crosshairCloseSpeed
-				local alpha = 1 - math.exp(-k * dt)
-				
+				local speed = isOpening and config.crosshairOpenSpeed or config.crosshairCloseSpeed
+				local alpha = 1 - math.exp(-speed * dt)
+
 				currentFrame = currentFrame + (targetFrame - currentFrame) * alpha
-			
+
+				-- Snap to target frame if value is close
+				if math.abs(currentFrame - targetFrame) < 0.5 then
+    				currentFrame = targetFrame
+				end
+
 				local frameIndex = math.clamp(math.round(currentFrame), 1, MARKER_FRAME_COUNT)
 				markerDisplayFrame[actorId] = currentFrame
-				
+
 				if fade <= 0.01 then
 					entry.node.appCulled = true
 					frameIndex = 21
@@ -502,7 +492,6 @@ local function onSimulate(e)
 
 				if USE_FLIP_CONTROLLER then
 					local ctrlTime = (frameIndex - 1) / MARKER_FRAME_COUNT
-					local eye_plane = entry.node:getObjectByName("eye_plane")
 					local texProp = eye_plane.texturingProperty
 					texProp.controller.phase = 1 - ctrlTime
 				else
@@ -512,16 +501,34 @@ local function onSimulate(e)
 					end
 				end
 			end
-
 		elseif markerPool[actorId] then
 			-- Suspicion gone or disabled: cull and release the node
-			local entry = markerPool[actorId]
+			local fade = markerFade[actorId] or 0
+			fade = lerp(fade, 0, 1 - math.exp(-dt * 10))
+			markerFade[actorId] = fade
+
+			local eye_plane = markerPool[actorId].node:getObjectByName("eye_plane")
+			if eye_plane and eye_plane.materialProperty then
+				eye_plane.materialProperty.alpha = fade
+				eye_plane:updateProperties()
+			end
+
+			local targetFrame = MARKER_FRAME_COUNT
+			local currentFrame = markerDisplayFrame[actorId] or targetFrame
+			local speed = config.crosshairCloseSpeed
+			local alpha = 1 - math.exp(-speed * dt)
+
+			currentFrame = currentFrame + (targetFrame - currentFrame) * alpha
+
+			if fade <= 0.01 then
+				local entry = markerPool[actorId]
 			entry.node.appCulled = true
 			ref.sceneNode:detachChild(entry.node)
 			ref.sceneNode:update()
 			markerPool[actorId] = nil
 			markerDisplayFrame[actorId] = 21
 			log:debug("Detached suspicion marker from %s (suspicion cleared)", actorId)
+			end
 		end
 
 		-- === 2-D HUD bar ===
