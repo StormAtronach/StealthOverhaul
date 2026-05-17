@@ -552,6 +552,7 @@ local function onSimulate(e)
 
 				local shouldShow = mobilePlayer.isSneaking and (targetFrame <= 16)
 				local targetAlpha = shouldShow and 1 or 0
+				targetAlpha = targetAlpha * ((MARKER_FRAME_COUNT - markerDisplayFrame[actorId]) * 0.06)
 				fadeMarker(actorId, targetAlpha, 10, dt)
 				maybeDetachMarker(actorId, targetAlpha, markersToDetach)
 				
