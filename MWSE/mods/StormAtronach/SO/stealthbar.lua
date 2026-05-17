@@ -16,9 +16,12 @@ local crosshairActiveFrame = nil
 local crosshairDisplayFrame = nil -- float; smoothed toward target for animated transitions
 local crosshairParent = nil
 local vanillaCulledByUs = false
+local crosshairCurrentFade =  0 -- Float; used to track current crosshair alpha
 
-local markerDisplayFrame = {} -- CHANGED: new per-NPC smoothing buffer
-local markerFade = {} 
+
+local function lerp(start, goal, alpha)
+    return start + (goal - start)*alpha
+end
 
 --- Map suspicion level to one of five discrete crosshair frames at fixed thresholds.
 ---@param suspicion number  0.0–1.0
@@ -134,6 +137,10 @@ local MARKER_Z = 145
 local markerPool = {}
 local markerTemplate
 local markerTextures -- niSourceTexture[1..21], pre-loaded once
+
+local markerDisplayFrame = {} -- Table of floats, used per marker same way as crosshairDisplayFrame
+local markerCurrentFade = {} -- table of floats, used per marker same way as crosshairCurrentFade
+
 
 local function loadMarkerTextures()
 	if markerTextures then
@@ -334,20 +341,23 @@ local function destroyAllBars()
 	log:debug("Bar and marker pools reset on load")
 	createCrosshair()
 end
-
 event.register(tes3.event.loaded, destroyAllBars)
 
 
-local targetFade = 0
-local currentFade =  0
-local function lerp(start, goal, alpha)
-    return start + (goal - start)*alpha
-end
+local function smoothFrame(displayFrame, targetFrame, speed, dt)
+	local alpha = 1 - math.exp(-speed * dt)
+	displayFrame = displayFrame + (targetFrame - displayFrame) * alpha
 
+	if math.abs(displayFrame - targetFrame) < 0.5 then
+    	displayFrame = targetFrame
+	end
+
+	return displayFrame
+end
 
 ---@param e simulateEventData
 local function onSimulate(e)
-	-- Hide all bars and cull all markers first
+	-- Hide all bars first
 	for _, bar in pairs(barPool) do
 		bar.menu.visible = false
 	end
@@ -359,13 +369,10 @@ local function onSimulate(e)
 		return
 	end
 
-	local hiddenLastFrame = false
-	if crosshairDisplayFrame == nil then
-		hiddenLastFrame = true
-		crosshairDisplayFrame = 21
-	end
-
 	-- Crosshair: quantized sneak eye with optional animated transitions
+	crosshairDisplayFrame = crosshairDisplayFrame or MARKER_FRAME_COUNT
+	local frameIndex
+
 	if config.crosshairColorEnabled and tes3.mobilePlayer.isSneaking then
 		local maxSuspicion = 0
 		for _, s in pairs(detection.suspicion) do
@@ -374,40 +381,34 @@ local function onSimulate(e)
 			end
 		end
 		local targetFrame = quantizeFrame(maxSuspicion)
-		local frameIndex
-		if not config.crosshairAnimated or crosshairDisplayFrame == nil then
+		if config.crosshairAnimated then
+			local isOpening = targetFrame < crosshairDisplayFrame
+			local speed = isOpening and config.crosshairOpenSpeed or config.crosshairCloseSpeed
+			crosshairDisplayFrame = smoothFrame(crosshairDisplayFrame, targetFrame, speed, dt)
+			frameIndex = math.clamp(math.round(crosshairDisplayFrame), 1, MARKER_FRAME_COUNT)
+		else
 			crosshairDisplayFrame = targetFrame
 			frameIndex = targetFrame
-		else
-			local isOpening = targetFrame < crosshairDisplayFrame
-			local k = isOpening and config.crosshairOpenSpeed or config.crosshairCloseSpeed
-			local alpha = 1 - math.exp(-k * dt)
-			crosshairDisplayFrame = crosshairDisplayFrame + (targetFrame - crosshairDisplayFrame) * alpha
-			frameIndex = math.clamp(math.round(crosshairDisplayFrame), 1, MARKER_FRAME_COUNT)
 		end
+	else
+		crosshairDisplayFrame = smoothFrame(crosshairDisplayFrame, MARKER_FRAME_COUNT, config.crosshairCloseSpeed, dt)
+		frameIndex = math.clamp(math.round(crosshairDisplayFrame), 1, MARKER_FRAME_COUNT) 
+	end
+
+	if frameIndex then
 		setCrosshairFrame(frameIndex)
-	else
-		local k = config.crosshairCloseSpeed
-		local alpha = 1 - math.exp(-k * dt)
-		local targetFrame = 21
-		crosshairDisplayFrame = crosshairDisplayFrame + (targetFrame - crosshairDisplayFrame) * alpha
-		setCrosshairFrame(math.clamp(math.round(crosshairDisplayFrame), 1, MARKER_FRAME_COUNT))
 	end
-
-	if tes3.mobilePlayer.isSneaking then
-		targetFade = 1
-	else
-		targetFade = 0
-	end
-
+	
+	-- Crosshair: Fade in and out logic
+	local crosshairTargetFade = config.crosshairColorEnabled and tes3.mobilePlayer.isSneaking and 1 or 0
 	if crosshairParent then
-		currentFade = lerp(currentFade, targetFade, 1 - math.exp(-dt * 10))
+		crosshairCurrentFade = lerp(crosshairCurrentFade, crosshairTargetFade, 1 - math.exp(-dt * 10))
 		if crosshairActiveFrame and crosshairFrames[crosshairActiveFrame] then
-			crosshairFrames[crosshairActiveFrame].alpha = currentFade
+			crosshairFrames[crosshairActiveFrame].alpha = crosshairCurrentFade
 		end
 	end
 
-
+	-- TO DO: Evaluate if this is relevant or not
 	if tes3ui.menuMode() then
 		return
 	end
@@ -417,11 +418,18 @@ local function onSimulate(e)
 		return
 	end
 
-	local actors = tes3.findActorsInProximity({ reference = tes3.player, range = config.barRange })
+	local actorsInRange = tes3.findActorsInProximity({ reference = tes3.player, range = config.barRange })
 	-- Track which actors are in range this frame so we can clean up stale markers
 	local seenActors = {}
+	local actorsOutsideRange = {}
+	
+	for actorId in pairs(markerPool) do
+		if not actorsInRange[actorId] then
+			actorsOutsideRange[actorId] = true
+		end
+	end
 
-	for _, actor in pairs(actors) do
+	for _, actor in pairs(actorsInRange) do
 		---@cast actor tes3mobileNPC
 		if actor == tes3.mobilePlayer then
 			goto continue
@@ -446,7 +454,7 @@ local function onSimulate(e)
 			if marker then
 				marker.appCulled = false
 				local entry = markerPool[actorId]
-				local targetFrame = 21
+				local targetFrame = MARKER_FRAME_COUNT
 				local actualSuspicion = detection.suspicion[actorId] or 0
 
 				if  actualSuspicion >= 1.0 then
@@ -457,10 +465,10 @@ local function onSimulate(e)
 
 				local shouldShow = mp.isSneaking and (targetFrame <= 16)
 				local targetFade = shouldShow and 1 or 0
-				local fade = markerFade[actorId] or 0
+				local fade = markerCurrentFade[actorId] or 0
 
 				fade = lerp(fade, targetFade, 1 - math.exp(-dt * 10))
-				markerFade[actorId] = fade
+				markerCurrentFade[actorId] = fade
 
 				local eye_plane = entry.node:getObjectByName("eye_plane")
 				if eye_plane and eye_plane.materialProperty then
@@ -485,8 +493,8 @@ local function onSimulate(e)
 
 				if fade <= 0.01 then
 					entry.node.appCulled = true
-					frameIndex = 21
-					markerDisplayFrame[actorId] = 21
+					frameIndex = MARKER_FRAME_COUNT
+					markerDisplayFrame[actorId] = MARKER_FRAME_COUNT
 				end
 
 				if USE_FLIP_CONTROLLER then
@@ -502,9 +510,9 @@ local function onSimulate(e)
 			end
 		elseif markerPool[actorId] then
 			-- Suspicion gone or disabled: cull and release the node
-			local fade = markerFade[actorId] or 0
+			local fade = markerCurrentFade[actorId] or 0
 			fade = lerp(fade, 0, 1 - math.exp(-dt * 10))
-			markerFade[actorId] = fade
+			markerCurrentFade[actorId] = fade
 
 			local eye_plane = markerPool[actorId].node:getObjectByName("eye_plane")
 			if eye_plane and eye_plane.materialProperty then
@@ -525,7 +533,7 @@ local function onSimulate(e)
 				ref.sceneNode:detachChild(entry.node)
 				ref.sceneNode:update()
 				markerPool[actorId] = nil
-				markerDisplayFrame[actorId] = 21
+				markerDisplayFrame[actorId] = MARKER_FRAME_COUNT
 				log:debug("Detached suspicion marker from %s (suspicion cleared)", actorId)
 			end
 		end
@@ -586,9 +594,9 @@ local function onSimulate(e)
 			markerDisplayFrame[actorId] = nil -- CHANGED
 		end
 	end
-	for actorId in pairs(markerFade) do
+	for actorId in pairs(markerCurrentFade) do
 		if not seenActors[actorId] then
-			markerFade[actorId] = nil
+			markerCurrentFade[actorId] = nil
 		end
 	end
 end
