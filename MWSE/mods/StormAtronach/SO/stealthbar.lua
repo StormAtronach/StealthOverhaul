@@ -3,11 +3,6 @@ local detection = require("StormAtronach.SO.detection")
 
 local log = mwse.Logger.new({ moduleName = "stealthbar", level = config.logLevel })
 
--- G7: You can use this to switch back and forth from the flip controller to the manual swap
--- Set to true to drive animation via NiFlipController + node:update() instead of manual texture swap.
--- Frame-to-time mapping: frame 1 = time 0, frame 21 = time 20/21 (Stop Time = 1, SecsPerFrame = 1/21).
-local USE_FLIP_CONTROLLER = true
-
 local MARKER_FRAME_COUNT = 21
 
 -- Crosshair: 21 UI image elements stacked inside MenuMulti; one visible at a time
@@ -76,6 +71,11 @@ local function setCrosshairFrame(frameIndex)
 	end
 end
 
+local function setFlipFrame(textureProperty, frameIndex)
+	local ctrlTime = (frameIndex - 1) / MARKER_FRAME_COUNT
+	textureProperty.controller.phase = 1 - ctrlTime
+end
+
 local function createCrosshair()
 	if crosshairParent == nil then
 		log:debug("[crosshair] no parent found, aborting crosshair creation")
@@ -139,7 +139,7 @@ local markerTemplate
 local markerTextures -- niSourceTexture[1..21], pre-loaded once
 
 local markerDisplayFrame = {} -- Table of floats, used per marker same way as crosshairDisplayFrame
-local markerCurrentFade = {} -- table of floats, used per marker same way as crosshairCurrentFade
+local markerCurrentAlpha = {} -- table of floats, used per marker same way as crosshairCurrentFade
 
 
 local function loadMarkerTextures()
@@ -163,9 +163,9 @@ local function getMarkerTemplate()
 end
 
 local function attachMarker(ref, actorId)
-	local entry = markerPool[actorId]
-	if entry then
-		return entry.node
+	local markerData = markerPool[actorId]
+	if markerData then
+		return markerData.node
 	end
 	if not ref.sceneNode then
 		return nil
@@ -176,6 +176,14 @@ local function attachMarker(ref, actorId)
 	end
 
 	local node = tmpl:clone()
+	local shape = node:getObjectByName("eye_plane")
+	if shape then
+    	local mat = shape.materialProperty
+    	if mat then
+        	shape.materialProperty = mat:clone()
+		end
+	end
+
 	node.name = "SA_SO_Marker_" .. actorId
 	node.translation = tes3vector3.new(0, 0, MARKER_Z)
 	node.appCulled = true
@@ -193,23 +201,22 @@ local function attachMarker(ref, actorId)
 
 	---@diagnostic disable-next-line: param-type-mismatch
 	local shape = node:getObjectByName("eye_plane") --[[@as niTriShape]]
-	local texProp = shape and shape:getProperty(ni.propertyType.texturing) --[[@as niTexturingProperty]]
+	local texProp = shape and shape.texturingProperty --[[@as niTexturingProperty]]
 	local flipCtrl = shape and shape.controller --[[@as niTimeController]]
-	local materialProp = shape:getObjectByName("eye_alpha") --[[@as niMaterialProperty]]
-	markerPool[actorId] = { node = node, ref = ref, texProp = texProp, flipCtrl = flipCtrl, materialProp = materialProp}
+	markerPool[actorId] = { node = node, ref = ref, texProp = texProp, flipCtrl = flipCtrl}
 	log:debug("Attached sneak eye marker to %s", actorId)
 
 	return node
 end
 
 local function detachMarker(actorId)
-	local entry = markerPool[actorId]
-	if not entry then
+	local markerData = markerPool[actorId]
+	if not markerData then
 		return
 	end
-	local ref = entry.ref
+	local ref = markerData.ref
 	if ref and ref.sceneNode then
-		ref.sceneNode:detachChild(entry.node)
+		ref.sceneNode:detachChild(markerData.node)
 		ref.sceneNode:update()
 	end
 	markerPool[actorId] = nil
@@ -336,6 +343,8 @@ local function destroyAllBars()
 	displayState = {}
 	markerPool = {}
 	crosshairFrames = {}
+	markerDisplayFrame = {}
+	markerCurrentAlpha = {}
 	crosshairActiveFrame = nil
 	crosshairDisplayFrame = nil
 	log:debug("Bar and marker pools reset on load")
@@ -355,6 +364,40 @@ local function smoothFrame(displayFrame, targetFrame, speed, dt)
 	return displayFrame
 end
 
+local function fadeMarker(actorId, targetAlpha, speed, dt)
+	local markerData = markerPool[actorId]
+	if not markerData then
+		return
+	end
+	
+	local currentAlpha = markerCurrentAlpha[actorId] or 0
+	currentAlpha = lerp(currentAlpha, targetAlpha, 1 - math.exp(-dt * speed))
+	currentAlpha = math.clamp(currentAlpha, 0, 1)
+	markerCurrentAlpha[actorId] = currentAlpha
+
+	local eye_plane = markerData.node:getObjectByName("eye_plane")
+	if eye_plane and eye_plane.materialProperty then
+		eye_plane.materialProperty.alpha = currentAlpha
+		eye_plane:updateProperties()
+	end
+end
+
+local function maybeDetachMarker(actorId, targetAlpha, markersToDetach)
+    local markerData = markerPool[actorId]
+    if not markerData then return end
+    if markerCurrentAlpha[actorId] <= 0.01 and (not targetAlpha or targetAlpha == 0) then
+        markerData.node.appCulled = true
+        
+        markerDisplayFrame[actorId] = nil
+        markerCurrentAlpha[actorId] = nil
+
+		table.insert(markersToDetach, actorId)
+        return true
+    else
+        markerData.node.appCulled = false
+    end
+end
+
 ---@param e simulateEventData
 local function onSimulate(e)
 	-- Hide all bars first
@@ -362,16 +405,35 @@ local function onSimulate(e)
 		bar.menu.visible = false
 	end
 	
-	local dt = e.delta
-
 	if not config.modEnabled then
 		setCrosshairFrame(nil)
+		for actorId in pairs(markerPool) do
+			local markerData = markerPool[actorId]
+			if markerData then
+				markerData.node.appCulled = true
+				detachMarker(actorId)
+				markerDisplayFrame[actorId] = nil
+				markerCurrentAlpha[actorId] = nil
+			end
+		end
+		for actorId, bar in pairs(barPool) do
+			if bar then
+				bar.menu:destroy()
+				barPool[actorId] = nil
+				log:debug("Destroyed suspicion bar for %s (left proximity)", actorId)
+			end
+		end
+		for actorId in pairs(displayState) do
+			displayState[actorId] = nil
+		end
 		return
 	end
 
+	local dt = e.delta
+
 	-- Crosshair: quantized sneak eye with optional animated transitions
 	crosshairDisplayFrame = crosshairDisplayFrame or MARKER_FRAME_COUNT
-	local frameIndex
+	local crosshairFrameIndex
 
 	if config.crosshairColorEnabled and tes3.mobilePlayer.isSneaking then
 		local maxSuspicion = 0
@@ -385,18 +447,18 @@ local function onSimulate(e)
 			local isOpening = targetFrame < crosshairDisplayFrame
 			local speed = isOpening and config.crosshairOpenSpeed or config.crosshairCloseSpeed
 			crosshairDisplayFrame = smoothFrame(crosshairDisplayFrame, targetFrame, speed, dt)
-			frameIndex = math.clamp(math.round(crosshairDisplayFrame), 1, MARKER_FRAME_COUNT)
+			crosshairFrameIndex = math.clamp(math.round(crosshairDisplayFrame), 1, MARKER_FRAME_COUNT)
 		else
 			crosshairDisplayFrame = targetFrame
-			frameIndex = targetFrame
+			crosshairFrameIndex = targetFrame
 		end
 	else
 		crosshairDisplayFrame = smoothFrame(crosshairDisplayFrame, MARKER_FRAME_COUNT, config.crosshairCloseSpeed, dt)
-		frameIndex = math.clamp(math.round(crosshairDisplayFrame), 1, MARKER_FRAME_COUNT) 
+		crosshairFrameIndex = math.clamp(math.round(crosshairDisplayFrame), 1, MARKER_FRAME_COUNT) 
 	end
 
-	if frameIndex then
-		setCrosshairFrame(frameIndex)
+	if crosshairFrameIndex then
+		setCrosshairFrame(crosshairFrameIndex)
 	end
 	
 	-- Crosshair: Fade in and out logic
@@ -413,21 +475,16 @@ local function onSimulate(e)
 		return
 	end
 
-	local mp = tes3.mobilePlayer
-	if not mp then
+	local mobilePlayer = tes3.mobilePlayer
+	if not mobilePlayer then
 		return
 	end
 
 	local actorsInRange = tes3.findActorsInProximity({ reference = tes3.player, range = config.barRange })
 	-- Track which actors are in range this frame so we can clean up stale markers
 	local seenActors = {}
-	local actorsOutsideRange = {}
-	
-	for actorId in pairs(markerPool) do
-		if not actorsInRange[actorId] then
-			actorsOutsideRange[actorId] = true
-		end
-	end
+	local markersToDetach = {}
+
 
 	for _, actor in pairs(actorsInRange) do
 		---@cast actor tes3mobileNPC
@@ -442,99 +499,69 @@ local function onSimulate(e)
 
 		local actorId = ref.id
 		local suspicionValue = getDisplayValue(actorId, dt)
-
 		seenActors[actorId] = true
 
 		-- === 3-D marker ===
-		local pct = suspicionValue
-		log:trace("[marker] %s pct=%.3f", actorId, pct)
+		log:trace("[marker] %s suspicionValue=%.3f", actorId, suspicionValue)
 
-		if config.markerEnabled and suspicionValue > 0 then
-			local marker = attachMarker(ref, actorId)
-			if marker then
-				marker.appCulled = false
-				local entry = markerPool[actorId]
-				local targetFrame = MARKER_FRAME_COUNT
-				local actualSuspicion = detection.suspicion[actorId] or 0
-
-				if  actualSuspicion >= 1.0 then
-					targetFrame = 1 -- fully open
-				else
-					targetFrame = quantizeFrame(suspicionValue) - 1
-				end
-
-				local shouldShow = mp.isSneaking and (targetFrame <= 16)
-				local targetFade = shouldShow and 1 or 0
-				local fade = markerCurrentFade[actorId] or 0
-
-				fade = lerp(fade, targetFade, 1 - math.exp(-dt * 10))
-				markerCurrentFade[actorId] = fade
-
-				local eye_plane = entry.node:getObjectByName("eye_plane")
-				if eye_plane and eye_plane.materialProperty then
-					eye_plane.materialProperty.alpha = fade
-					eye_plane:updateProperties()
-				end
-
-				local currentFrame = markerDisplayFrame[actorId] or targetFrame
-				local isOpening = targetFrame < currentFrame
-				local speed = isOpening and config.crosshairOpenSpeed or config.crosshairCloseSpeed
-				local alpha = 1 - math.exp(-speed * dt)
-
-				currentFrame = currentFrame + (targetFrame - currentFrame) * alpha
-
-				-- Snap to target frame if value is close
-				if math.abs(currentFrame - targetFrame) < 0.5 then
-    				currentFrame = targetFrame
-				end
-
-				local frameIndex = math.clamp(math.round(currentFrame), 1, MARKER_FRAME_COUNT)
-				markerDisplayFrame[actorId] = currentFrame
-
-				if fade <= 0.01 then
-					entry.node.appCulled = true
-					frameIndex = MARKER_FRAME_COUNT
-					markerDisplayFrame[actorId] = MARKER_FRAME_COUNT
-				end
-
-				if USE_FLIP_CONTROLLER then
-					local ctrlTime = (frameIndex - 1) / MARKER_FRAME_COUNT
-					local texProp = eye_plane.texturingProperty
-					texProp.controller.phase = 1 - ctrlTime
-				else
-					local textures = loadMarkerTextures()
-					if entry.texProp and textures[frameIndex] then
-						entry.texProp.maps[1].texture = textures[frameIndex]
+		local markerData = markerPool[actorId]
+		-- Make sure things have markers
+		if config.markerEnabled then
+			if not markerData then
+				if suspicionValue > 0 then
+					local marker = attachMarker(ref, actorId)
+					if marker then
+						markerData = markerPool[actorId]
 					end
 				end
 			end
-		elseif markerPool[actorId] then
-			-- Suspicion gone or disabled: cull and release the node
-			local fade = markerCurrentFade[actorId] or 0
-			fade = lerp(fade, 0, 1 - math.exp(-dt * 10))
-			markerCurrentFade[actorId] = fade
+			-- Make sure we have a proper markerData to work with (start a new if statement to act on a newly created marker too)
+			if markerData then
+				markerData.node.appCulled = false
+				markerDisplayFrame[actorId] = markerDisplayFrame[actorId] or MARKER_FRAME_COUNT
+				local markerFrameIndex
+				local targetFrame = MARKER_FRAME_COUNT
 
-			local eye_plane = markerPool[actorId].node:getObjectByName("eye_plane")
-			if eye_plane and eye_plane.materialProperty then
-				eye_plane.materialProperty.alpha = fade
-				eye_plane:updateProperties()
+				if tes3.mobilePlayer.isSneaking then
+					local actualSuspicion = detection.suspicion[actorId] or 0
+					
+					if  actualSuspicion >= 1.0 then
+						targetFrame = 1
+					else
+						targetFrame = quantizeFrame(suspicionValue)
+					end
+
+					if config.crosshairAnimated then
+						local isOpening = targetFrame < markerDisplayFrame[actorId]
+						local speed = isOpening and config.crosshairOpenSpeed or config.crosshairCloseSpeed
+						markerDisplayFrame[actorId] = smoothFrame(markerDisplayFrame[actorId], targetFrame, speed, dt)
+						markerFrameIndex = math.clamp(math.round(markerDisplayFrame[actorId]), 1, MARKER_FRAME_COUNT)
+					else
+						markerDisplayFrame[actorId] = targetFrame
+						markerFrameIndex = targetFrame
+					end
+
+				else
+					markerDisplayFrame[actorId] = smoothFrame(markerDisplayFrame[actorId], MARKER_FRAME_COUNT, config.crosshairCloseSpeed, dt)
+					markerFrameIndex = math.clamp(math.round(markerDisplayFrame[actorId]), 1, MARKER_FRAME_COUNT) 
+				end
+
+				if markerFrameIndex then
+					setFlipFrame(markerData.texProp, markerFrameIndex)
+				end
+
+				local shouldShow = mobilePlayer.isSneaking and (targetFrame <= 16)
+				local targetAlpha = shouldShow and 1 or 0
+				fadeMarker(actorId, targetAlpha, 10, dt)
+				maybeDetachMarker(actorId, targetAlpha, markersToDetach)
+				
 			end
-
-			local targetFrame = MARKER_FRAME_COUNT
-			local currentFrame = markerDisplayFrame[actorId] or targetFrame
-			local speed = config.crosshairCloseSpeed
-			local alpha = 1 - math.exp(-speed * dt)
-
-			currentFrame = currentFrame + (targetFrame - currentFrame) * alpha
-
-			if fade <= 0.01 then
-				local entry = markerPool[actorId]
-				entry.node.appCulled = true
-				ref.sceneNode:detachChild(entry.node)
-				ref.sceneNode:update()
-				markerPool[actorId] = nil
-				markerDisplayFrame[actorId] = MARKER_FRAME_COUNT
-				log:debug("Detached suspicion marker from %s (suspicion cleared)", actorId)
+		else
+			if markerData then
+				markerData.node.appCulled = true
+				detachMarker(actorId)
+				markerDisplayFrame[actorId] = nil
+				markerCurrentAlpha[actorId] = nil
 			end
 		end
 
@@ -561,9 +588,9 @@ local function onSimulate(e)
 		bar.menu.absolutePosAlignY = math.max(0, sp.y - BAR_Y_OFFSET)
 
 		bar.fillbar.widget.current = math.floor(suspicionValue * 100)
-		log:trace("[bar widget] %s current=%d max=100 pct=%.3f", actorId, bar.fillbar.widget.current, pct)
+		log:trace("[bar widget] %s current=%d max=100 suspicionValue=%.3f", actorId, bar.fillbar.widget.current, suspicionValue)
 		-- Green → yellow → red
-		bar.fillbar.widget.fillColor = { math.min(pct * 2, 1), math.min((1 - pct) * 2, 1), 0 }
+		bar.fillbar.widget.fillColor = { math.min(suspicionValue * 2, 1), math.min((1 - suspicionValue) * 2, 1), 0 }
 
 		bar.menu.visible = true
 		bar.menu:updateLayout()
@@ -574,9 +601,15 @@ local function onSimulate(e)
 	-- Clean up actors that left proximity this frame
 	for actorId in pairs(markerPool) do
 		if not seenActors[actorId] then
-			detachMarker(actorId)
+			fadeMarker(actorId, 0, 10, dt)
+			maybeDetachMarker(actorId, 0, markersToDetach)
 		end
 	end
+
+	for _, actorId in ipairs(markersToDetach) do
+    	detachMarker(actorId)
+	end
+
 	for actorId, bar in pairs(barPool) do
 		if not seenActors[actorId] then
 			bar.menu:destroy()
@@ -587,16 +620,6 @@ local function onSimulate(e)
 	for actorId in pairs(displayState) do
 		if not seenActors[actorId] then
 			displayState[actorId] = nil
-		end
-	end
-	for actorId in pairs(markerDisplayFrame) do
-		if not seenActors[actorId] then
-			markerDisplayFrame[actorId] = nil -- CHANGED
-		end
-	end
-	for actorId in pairs(markerCurrentFade) do
-		if not seenActors[actorId] then
-			markerCurrentFade[actorId] = nil
 		end
 	end
 end
