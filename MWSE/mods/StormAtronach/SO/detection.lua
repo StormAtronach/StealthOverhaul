@@ -53,7 +53,7 @@ local function restartCombatDetectionCheckTimers(actorId)
 	end
 	combatDetectionCheckTimers[actorId] = timer.start({
 		type = timer.simulate,
-		duration = 1,
+		duration = 0.1,
 		iterations = 1,
 		callback = function()
 			combatDetectionCheckTimers[actorId] = nil
@@ -150,6 +150,10 @@ local function onLoad()
 end
 event.register(tes3.event.loaded, onLoad)
 
+local function getAngleFactor(angle)
+	return 0.25 + 0.75 * (1 + math.cos(math.rad(angle))) * 0.5
+end
+
 --- Compute the detection rate per second for a given detector and distance.
 --- Rate is in bar-fills per second; multiply by dt/fillTime to get per-frame progress.
 --- Based on the design model in morrowind_sneak_detection_model.md.
@@ -175,31 +179,21 @@ local function computeDetectionRate(detector, distance, actorId)
 	-- getViewToActor: 0 = directly in front, ±180 = directly behind
 	local angle = detector:getViewToActor(player)
 
-	------------------------------------------------------------------------------------------------------------------------------------
-	-- TODO: Change the angle factor to be more allowing from very much behind, and then increase in difficulty for completely forward.
-	------------------------------------------------------------------------------------------------------------------------------------
-	local angleFactor = 0.1 + 1 * (1 + math.cos(math.rad(angle))) / 2
+	local angleFactor = getAngleFactor(angle)
 
 	local rawRate = distanceFactor * angleFactor
 
+	local standingStill = player.velocity:length() < 5
 	-- Modifiers
 	local chameleon = player.chameleon or 0
-	local standStillMult = player.velocity:length() < 5 and -0.2 or 1.0
+	local standStillMult = standingStill and 0.8 or 1.0
 	local lightFactor = (config.lightMechanicEnabled and playerInLight) and config.lightRateMult or 1.0
 	local shoeFactor = 1 + player:getBootsWeight() / 50
 
 	local modifiedRate = rawRate * standStillMult * lightFactor * shoeFactor
 
 	-- Add the chameleon factor and clamp
-	local rate = math.clamp(modifiedRate * (1 - chameleon / 100), config.detFloor, config.detCap)
-
-	if tes3.mobilePlayer.invisibility > 0 then rate = config.detFloor end
-	------------------------------------------------------------------------------------------------------------------------------------
-	-- TODO: Make a standing still negative effect so that the player can hide. Maybe even check for raytest every few frames to see if one can hide behind things.
-	------------------------------------------------------------------------------------------------------------------------------------
-	--if standStillMult <= 0.8 then
-	--	rate = rate - (0.5 * (angleFactor - 0.1))
-	--end
+	local rate = math.clamp(modifiedRate * (1 - (chameleon / 100)), config.detFloor, config.detCap)
 
 	local now = os.clock()
 	if (now - (sneakChanceLogTime[actorId] or 0)) >= 0.25 then
@@ -287,7 +281,12 @@ local function detectSneakCallback(e)
 	local rate = computeDetectionRate(detector, distance, actorId)
 	local state = detectionState[actorId] or {}
 	state.rate = rate
+
+----------------------------------------------------------------------------
+	-- TODO: I am currently not allowing the  state.lastUpdate become stale on rate = 0. Find a way to do so!
+	--------------------------------------------------------------------
 	state.lastUpdate = os.clock()
+
 
 	detectionState[actorId] = state
 	
@@ -358,13 +357,13 @@ local function onSimulate(e)
 		toProcess[id] = true
 	end
 
+	
 	for actorId in pairs(toProcess) do
 		local current = detection.suspicion[actorId] or 0
 		local state = detectionState[actorId]
 		local inCombat = state and state.inCombat or false
-		-- Actor is active if a detectSneak tick arrived recently; stale = left range
-		
 		local inCombatDecayCooldown = false
+		local ref = tes3.getReference(actorId)
 
 		if inCombat then
 			local combatStarted = state.combatStarted
@@ -373,25 +372,44 @@ local function onSimulate(e)
 				state.lastUpdate = os.clock()
 				current = 1
 				inCombatDecayCooldown = true
-				if not combatDetectionCheckTimers[actorId] then
-					restartCombatDetectionCheckTimers(actorId)
-					local ref = tes3.getReference(actorId)
-					local distance = ref.position:distance(tes3.player.position)
-					if distance < config.baseRange * 2 then
-						local playerSeen = tes3.testLineOfSight({ reference1 = ref, reference2 = tes3.player})
-						if playerSeen then
-							state.combatStarted = os.clock()
-						end
+				local distance = ref.position:distance(tes3.player.position)
+				if distance < config.baseRange * 2 then
+					local playerSeen = tes3.testLineOfSight({ reference1 = ref, reference2 = tes3.player})
+					if playerSeen then
+						state.combatStarted = os.clock()
 					end
 				end
 			end
 		end
 
+
 		local isStale = not state or (os.clock() - state.lastUpdate) >= staleThreshold
 		local active = not isStale
 
+
+		local player = tes3.mobilePlayer
+		local standingStill = player.velocity:length() < 5
+    	local invisible = player.invisibility > 0
+
+		local mob = ref.mobile
+    	local angle = mob:getViewToActor(player)
+    	local angleFactor = getAngleFactor(angle)
+
 		if active and not inCombatDecayCooldown then
 			local rate = state.rate or config.detFloor
+
+			-- Hiding and invisibility updates in simulate
+			if invisible then
+                rate = config.detFloor
+            end
+           
+            if standingStill and (not playerInLight or invisible) then
+                local hidingTerm = (1 - angleFactor) * config.hidingBonus
+                rate = math.clamp(rate - hidingTerm, 0, config.detCap)
+            end
+
+			tes3.messageBox(rate)
+
 			local delta = rate * dt / config.fillTime
 			current = math.min(1.0, current + delta)
 			restartDecayTimer(actorId)
@@ -432,6 +450,12 @@ local function onSimulate(e)
 end
 event.register(tes3.event.simulate, onSimulate)
 
+event.register(tes3.event.combatStopped, function(e)
+    local actorId = e.actor.reference.id
+    if detectionState[actorId] then
+        detectionState[actorId].inCombat = false
+    end
+end)
 
 local function onCombatStarted(e)
     if e.target ~= tes3.mobilePlayer then return end

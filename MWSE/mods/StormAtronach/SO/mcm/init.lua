@@ -168,6 +168,17 @@ local function registerModConfig()
 		configKey = "suspicionDecayDelay",
 	})
 
+	detection:createSlider({
+		label = "Hiding bonus",
+		description = "Standing still behind an NPC and not in a light subtracts from the current tick up rate, and can even give a negative value..",
+		min = 0,
+		max = 1,
+		step = 0.01,
+		decimalPlaces = 2,
+		configKey = "hidingBonus",
+	})
+
+
 	--[[ Steal Suspicion Bonus: disabled while onCrimeWitnessed is commented out.
 	detection:createSlider({
 		label = "Steal Suspicion Bonus",
@@ -190,7 +201,7 @@ local function registerModConfig()
 		configKey = "crosshairColorEnabled",
 	})
 
-	hud:createDropdown({
+	--[[hud:createDropdown({
 		label = "Sneak Eye Size",
 		description = "Pixel size of the sneak eye crosshair. Larger values require higher-resolution textures.",
 		options = {
@@ -202,7 +213,7 @@ local function registerModConfig()
 		callback = function()
 			event.trigger("SA_SO_crosshairRecreate")
 		end,
-	})
+	})]]
 
 	hud:createSlider({
 		label = "Sneak Eye Scale",
