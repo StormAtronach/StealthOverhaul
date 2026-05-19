@@ -23,7 +23,7 @@ local default = {
 	detCap = 1.0, -- max detection rate per second (prevents instant-fill)
 	detFloor = 0.03, -- min detection rate within range (prevents true invisibility)
 	fillTime = 1.0, -- seconds at rate=1.0 to fill bar from 0→100%
-	hidingBonus = 0.5,
+	hidingBonus = 0.1,
 	-- Light mechanic
 	lightMechanicEnabled = true, -- increase detection rate when player is inside a light source's radius
 	lightRateMult = 2.0, -- detection rate multiplier when player is in a light source (>1 = faster detection)
@@ -41,8 +41,8 @@ local default = {
 	fillbarEnabled = false,
 	markerEnabled = true,
 	barRange = 2000, -- bars/markers only shown within this distance (units)
-	markerMinSize = 10, -- marker size at 1% suspicion (game units)
-	markerMaxSize = 30, -- marker size at 100% suspicion (game units)
+	markerMinSize = 100, -- marker size at 1% suspicion (game units)
+	markerMaxSize = 200, -- marker size at 100% suspicion (game units)
 	-- Sneak strike
 	sneakStrikeEnabled = true,
 	showSneakStrikeMessage = true, -- show a messageBox with the damage multiplier on a sneak strike

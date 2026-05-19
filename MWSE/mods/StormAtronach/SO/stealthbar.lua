@@ -188,9 +188,12 @@ local function attachMarker(ref, actorId)
 	node.translation = tes3vector3.new(0, 0, MARKER_Z)
 	node.appCulled = true
 
-	local weight = 1 / ref.object.weight
-	local height = 1 / ref.object.height
-	local scale = tes3vector3.new(weight, weight, height)
+	local weight = ref.object.weight or 1
+	local height = ref.object.height or 1
+
+	local scaleWeight = 1 / weight
+	local scaleHeight = 1 / height
+	local scale = tes3vector3.new(scaleWeight, scaleWeight, scaleHeight)
 
 	local r = node.rotation
 	node.rotation = tes3matrix33.new(r.x * scale, r.y * scale, r.z * scale)
@@ -624,4 +627,4 @@ local function onSimulate(e)
 		end
 	end
 end
-event.register(tes3.event.simulate, onSimulate)
+event.register(tes3.event.simulate, onSimulate, { priority = -1 })
