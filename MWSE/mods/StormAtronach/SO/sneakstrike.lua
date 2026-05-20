@@ -1,5 +1,6 @@
 local config = require("StormAtronach.SO.config")
 local log = mwse.Logger.new({ moduleName = "sneakstrike", level = config.logLevel })
+local detection = require("StormAtronach.SO.detection")
 
 --- Linearly interpolate the sneak-skill damage multiplier.
 local skillBreakpoints = { 0, 25, 50, 75, 100 }
@@ -102,6 +103,10 @@ local function attackHitCallback(e)
 	if e.targetMobile.isPlayerDetected then
 		return
 	end
+
+	detection.addSuspicion(e.reference.id, 1)
+	e.targetMobile.isPlayerDetected = true
+
 	-- Determine weapon type key
 	local weaponTypeKey
 	local weapon = e.mobile.readiedWeapon
