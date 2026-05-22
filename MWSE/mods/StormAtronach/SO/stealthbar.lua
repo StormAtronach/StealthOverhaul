@@ -162,6 +162,9 @@ local function getMarkerTemplate()
 	return markerTemplate
 end
 
+
+---@param ref tes3reference  The reference to attach marker to
+---@param actorId string  The actors Id to use for keeping tabs of data
 local function attachMarker(ref, actorId)
 	local markerData = markerPool[actorId]
 	if markerData then
@@ -184,8 +187,16 @@ local function attachMarker(ref, actorId)
 		end
 	end
 
+	local markerHeight = MARKER_Z
+	local actor = ref.attachments.actor
+	local isCreature = actor.actorType == tes3.actorType.creature
+	if isCreature then
+		markerHeight = actor.boundSize.z + 20
+	end
+
+
 	node.name = "SA_SO_Marker_" .. actorId
-	node.translation = tes3vector3.new(0, 0, MARKER_Z)
+	node.translation = tes3vector3.new(0, 0, markerHeight)
 	node.appCulled = true
 
 	local weight = ref.object.weight or 1
@@ -200,7 +211,7 @@ local function attachMarker(ref, actorId)
 
 	ref.sceneNode:attachChild(node, true)
 	ref.sceneNode:update()
-	ref.sceneNode:updateNodeEffects()
+	ref.sceneNode:updateEffects()
 
 	---@diagnostic disable-next-line: param-type-mismatch
 	local shape = node:getObjectByName("eye_plane") --[[@as niTriShape]]
