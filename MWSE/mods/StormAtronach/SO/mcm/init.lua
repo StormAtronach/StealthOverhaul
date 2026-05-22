@@ -170,7 +170,7 @@ local function registerModConfig()
 
 	detection:createSlider({
 		label = "Hiding bonus",
-		description = "Standing still behind an NPC and not in a light subtracts from the current tick up rate, and can even give a negative value..",
+		description = "Standing still behind an NPC and not in a light subtracts from the current tick up rate, and can even make suspicion go down again. 0 means this feature is turned off.",
 		min = 0,
 		max = 1,
 		step = 0.01,
@@ -197,23 +197,9 @@ local function registerModConfig()
 
 	hud:createYesNoButton({
 		label = "Sneak Eye Crosshair",
-		description = "While sneaking, overlays the crosshair with an animated sneak eye that opens as suspicion rises (closed at 0, fully open at 1.0). Reflects the highest suspicion among nearby actors.",
+		description = "While sneaking, overlays the crosshair with an animated sneak eye that opens as suspicion rises (closed at 0, fully open at 1.0). Reflects the highest suspicion among nearby actors, meaning enemies will attack you, and neutral NPCs will notice a crime committed when they have line of sight when the eye is fully opened.",
 		configKey = "crosshairColorEnabled",
 	})
-
-	--[[hud:createDropdown({
-		label = "Sneak Eye Size",
-		description = "Pixel size of the sneak eye crosshair. Larger values require higher-resolution textures.",
-		options = {
-			{ label = "32",  value = 32  },
-			{ label = "64",  value = 64  },
-			{ label = "128", value = 128 },
-		},
-		configKey = "crosshairSize",
-		callback = function()
-			event.trigger("SA_SO_crosshairRecreate")
-		end,
-	})]]
 
 	hud:createSlider({
 		label = "Sneak Eye Scale",
@@ -261,16 +247,18 @@ local function registerModConfig()
 	hud:createCategory({ label = "Suspicion Indicators" })
 
 	hud:createYesNoButton({
-		label = "Suspicion Fillbars",
+		label = "Suspicion Markers",
+		description = "Show a 3D marker above each nearby NPC while sneaking, animating to open and shows clearly when someone suspects you and will see what you do.",
+		configKey = "markerEnabled",
+	})
+
+	hud:createYesNoButton({
+		label = "Suspicion Fillbars (not recommended, mostly for debug)",
 		description = "Show a suspicion fillbar above each nearby NPC while sneaking. Disabled by default.",
 		configKey = "fillbarEnabled",
 	})
 
-	hud:createYesNoButton({
-		label = "Suspicion Markers",
-		description = "Show a 3D marker above each nearby NPC while sneaking, scaling from green to red with suspicion level.",
-		configKey = "markerEnabled",
-	})
+
 
 	hud:createSlider({
 		label = "Display Range (units)",
@@ -279,26 +267,6 @@ local function registerModConfig()
 		max = 5000,
 		step = 100,
 		configKey = "barRange",
-	})
-
-	hud:createCategory({ label = "Suspicion Marker" })
-
-	hud:createSlider({
-		label = "Marker Min Size",
-		description = "Size of the warning marker (in game units) at minimum suspicion.",
-		min = 5,
-		max = 100,
-		step = 5,
-		configKey = "markerMinSize",
-	})
-
-	hud:createSlider({
-		label = "Marker Max Size",
-		description = "Size of the warning marker (in game units) at full suspicion.",
-		min = 5,
-		max = 200,
-		step = 5,
-		configKey = "markerMaxSize",
 	})
 
 	-- Sneak Strike page

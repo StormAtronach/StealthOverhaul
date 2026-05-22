@@ -164,7 +164,7 @@ end
 
 
 ---@param ref tes3reference  The reference to attach marker to
----@param actorId string  The actors Id to use for keeping tabs of data
+---@param actorId string  The actor's reference Id to store data properly
 local function attachMarker(ref, actorId)
 	local markerData = markerPool[actorId]
 	if markerData then
@@ -193,7 +193,6 @@ local function attachMarker(ref, actorId)
 	if isCreature then
 		markerHeight = actor.boundSize.z + 20
 	end
-
 
 	node.name = "SA_SO_Marker_" .. actorId
 	node.translation = tes3vector3.new(0, 0, markerHeight)

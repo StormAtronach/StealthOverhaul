@@ -41,8 +41,6 @@ local default = {
 	fillbarEnabled = false,
 	markerEnabled = true,
 	barRange = 2000, -- bars/markers only shown within this distance (units)
-	markerMinSize = 100, -- marker size at 1% suspicion (game units)
-	markerMaxSize = 200, -- marker size at 100% suspicion (game units)
 	-- Sneak strike
 	sneakStrikeEnabled = true,
 	showSneakStrikeMessage = true, -- show a messageBox with the damage multiplier on a sneak strike
