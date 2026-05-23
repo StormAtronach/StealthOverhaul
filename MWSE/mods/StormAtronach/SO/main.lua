@@ -9,6 +9,12 @@ local log = mwse.Logger.new({ moduleName = "main", level = config.logLevel })
 
 require("StormAtronach.SO.mcm")
 
+-- For interop with Essential Indicator
+local essentialIndicatorInstalled, essentialIndicators = pcall(require, "Essential Indicators.interop")
+if not essentialIndicatorInstalled then
+	essentialIndicators = nil
+end
+
 -- VARIABLES
 local guardCooldown = 0
 local npcCooldown = {}
@@ -30,6 +36,13 @@ local function onLoad(e)
 	guardCooldown = 0		 -- Reset the guard cooldown
 	util.getData() 			 -- Update or create the playerData container
 	util.updateFactionList() -- Update or create the faction list
+
+	-- Interop with Essential Indicators
+	if essentialIndicators then
+		essentialIndicators.registerDisabledIndicator(essentialIndicators.indicatorEnum.SneakIndicator, "StealthOverhaul", true, true)
+		essentialIndicators.registerOverrideTexture(essentialIndicators.textureEnum.DefaultTexture, "StealthOverhaul","textures/sa_so_ch_128/1.dds",1000)
+		print("[Stealth Overhaul] Essential Indicators interop activated")
+	end
 end
 event.register(tes3.event.loaded,onLoad)
 
