@@ -40,7 +40,8 @@ local function onLoad(e)
 	-- Interop with Essential Indicators
 	if essentialIndicators then
 		essentialIndicators.registerDisabledIndicator(essentialIndicators.indicatorEnum.SneakIndicator, "StealthOverhaul", true, true)
-		essentialIndicators.registerOverrideTexture(essentialIndicators.textureEnum.DefaultTexture, "StealthOverhaul","textures/sa_so_ch_128/1.dds",1000)
+		essentialIndicators.registerOverrideTexture(essentialIndicators.textureEnum.DefaultTexture, "StealthOverhaul","textures/sa_so_ch_128/crosshair.dds",1000)
+		essentialIndicators.registerScaleOverride(essentialIndicators.scaleTypeEnum.DefaultIndicatorScale, 240,"StealthOverhaul",1000)
 		print("[Stealth Overhaul] Essential Indicators interop activated")
 	end
 end

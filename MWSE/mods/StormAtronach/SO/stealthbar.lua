@@ -96,7 +96,7 @@ local function createCrosshair()
 	crosshairFrames = {}
 	crosshairActiveFrame = nil
 
-	local block = crosshairParent:createBlock{ id = "SA_SO_crosshair_block" }
+	local block = crosshairParent:createBlock{ id = "SA_SO_crosshair_block" } --[[@as tes3uiElement]]
 	block.layoutOriginFractionX = 0.5
 	block.layoutOriginFractionY = 0.5
 	block.autoWidth = true
