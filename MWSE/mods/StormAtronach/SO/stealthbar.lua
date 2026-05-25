@@ -3,10 +3,11 @@ local detection = require("StormAtronach.SO.detection")
 
 -- Interop with Essential Indicator
 -- For interop with Essential Indicator
-local essentialIndicatorInstalled, essentialIndicators = pcall(require, "Essential Indicators.interop")
+local essentialIndicatorInstalled, ei = pcall(require, "Essential Indicators.interop")
 if not essentialIndicatorInstalled then
-	essentialIndicators = nil
+	ei = nil
 end
+
 
 local log = mwse.Logger.new({ moduleName = "stealthbar", level = config.logLevel })
 

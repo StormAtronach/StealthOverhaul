@@ -10,9 +10,10 @@ local log = mwse.Logger.new({ moduleName = "main", level = config.logLevel })
 require("StormAtronach.SO.mcm")
 
 -- For interop with Essential Indicator
-local essentialIndicatorInstalled, essentialIndicators = pcall(require, "Essential Indicators.interop")
-if not essentialIndicatorInstalled then
-	essentialIndicators = nil
+local SO_INTEROP_ID = "StealthOverhaul"
+local eiInstalled, ei = pcall(require, "Essential Indicators.interop")
+if not eiInstalled then
+	ei = nil
 end
 
 -- VARIABLES
@@ -38,10 +39,10 @@ local function onLoad(e)
 	util.updateFactionList() -- Update or create the faction list
 
 	-- Interop with Essential Indicators
-	if essentialIndicators then
-		essentialIndicators.registerDisabledIndicator(essentialIndicators.indicatorEnum.SneakIndicator, "StealthOverhaul", true, true)
-		essentialIndicators.registerOverrideTexture(essentialIndicators.textureEnum.DefaultTexture, "StealthOverhaul","textures/sa_so_ch_128/crosshair.dds",1000)
-		essentialIndicators.registerScaleOverride(essentialIndicators.scaleTypeEnum.DefaultIndicatorScale, 240,"StealthOverhaul",1000)
+	if ei then
+		ei.registerDisabledIndicator(ei.indicatorEnum.SneakIndicator, true, true, SO_INTEROP_ID)
+		ei.registerReplacementTexture(ei.textureEnum.DefaultTexture,"textures/sa_so_ch_128/crosshair.dds", SO_INTEROP_ID ,1000)
+		ei.registerScaleOverride(ei.scaleTypeEnum.DefaultIndicatorScale, 240, SO_INTEROP_ID, 1000)
 		print("[Stealth Overhaul] Essential Indicators interop activated")
 	end
 end
