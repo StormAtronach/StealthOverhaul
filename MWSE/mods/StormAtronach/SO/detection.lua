@@ -4,6 +4,8 @@ local log = mwse.Logger.new({ moduleName = "detection", level = config.logLevel 
 
 local detection = {}
 
+local onSimulateTime = 0
+
 -- Per-actor suspicion progress: 0.0 (unseen) → 1.0 (fully detected).
 -- Read by stealthbar.lua.
 detection.suspicion = {}
@@ -77,6 +79,19 @@ local function checkPlayerLight()
 	end
 end
 
+local function recalculateLights(cell)
+	playerInLight = false
+	if lightCheckTimer then
+		lightCheckTimer:cancel()
+		lightCheckTimer = nil
+	end
+	scanCellLights(cell)
+	if #lightSources > 0 then
+		lightCheckTimer = timer.start({ type = timer.simulate, duration = 0.5, iterations = -1, callback = checkPlayerLight })
+	end
+end
+
+
 local function generateIdles()
 	local idles = {}
 	for i = 1, 4 do
@@ -91,15 +106,7 @@ end
 
 ---@param e cellChangedEventData
 local function onCellChanged(e)
-	playerInLight = false
-	if lightCheckTimer then
-		lightCheckTimer:cancel()
-		lightCheckTimer = nil
-	end
-	scanCellLights(e.cell)
-	if #lightSources > 0 then
-		lightCheckTimer = timer.start({ type = timer.simulate, duration = 0.5, iterations = -1, callback = checkPlayerLight })
-	end
+	recalculateLights(e.cell)
 end
 event.register(tes3.event.cellChanged, onCellChanged)
 
@@ -119,6 +126,8 @@ local function onLoad()
 	lightSources = {}
 	playerInLight = false
 	wasSneaking = false
+	recalculateLights(tes3.player.cell)
+
 	log:debug("Detection system reset on load")
 end
 event.register(tes3.event.loaded, onLoad)
@@ -160,14 +169,15 @@ local function computeDetectionRate(detector, distance, actorId)
 	-- Modifiers
 	local standStillMult = standingStill and 0.8 or 1.0
 	local lightFactor = (config.lightMechanicEnabled and playerInLight) and config.lightRateMult or 1.0
-	local shoeFactor = 1 + player:getBootsWeight() / 50
+	local bootsWeight = player:getBootsWeight() or 0
+	local shoeFactor = 1 + bootsWeight / 50
 
 	local modifiedRate = rawRate * standStillMult * lightFactor * shoeFactor
 
 	-- Add the chameleon factor and clamp
 	local rate = math.clamp(modifiedRate, config.detFloor, config.detCap)
 
-	local now = os.clock()
+	local now = onSimulateTime
 	if (now - (sneakChanceLogTime[actorId] or 0)) >= 0.25 then
 		sneakChanceLogTime[actorId] = now
 		--log:trace("[rate:%s] dist=%.0f effRange=%.0f distFactor=%.3f angle=%.1f angleFactor=%.2f rawRate=%.3f", actorId,
@@ -249,10 +259,12 @@ local function detectSneakCallback(e)
 	end
 
 	if playerInCombat then
-		e.isDetected = true
-		e.detector.isPlayerDetected = true
-		e.detector.isPlayerHidden = false
-		return
+		if tes3.testLineOfSight({ reference1 = tes3.player, reference2 = e.detector.reference }) then
+			e.isDetected = true
+			e.detector.isPlayerDetected = true
+			e.detector.isPlayerHidden = false
+			return
+		end
 	end
 
 	local detectorType = e.detector.actorType
@@ -278,9 +290,13 @@ local function detectSneakCallback(e)
 	local angleFactor = getAngleFactor(angle)
 	local hidingTerm = (1 - angleFactor) * config.hidingBonus
 
+	-- Apply chameleon for detection check (we have already saved down the state, so this will not be doubly applied in onSimulate later)
+	local chameleon = tes3.mobilePlayer.chameleon or 0
+	rate = rate * (1 - (chameleon / 100))
+
 	local shouldWeLetActorGoStale = math.clamp(rate - hidingTerm, 0, config.detCap)
 	if shouldWeLetActorGoStale > 0 then
-		state.lastUpdate = os.clock()
+		state.lastUpdate = onSimulateTime
 	end
 
 
@@ -308,6 +324,9 @@ event.register(tes3.event.detectSneak, detectSneakCallback, { priority = 1000 })
 --- AI tick frequency.
 ---@param e simulateEventData
 local function onSimulate(e)
+
+	onSimulateTime = onSimulateTime + e.delta
+
 	if not config.modEnabled then
 		return
 	end
@@ -327,7 +346,7 @@ local function onSimulate(e)
 						local angleFactor = getAngleFactor(angle)
 						local sneakSkill = math.min(tes3.mobilePlayer.sneak.current, 100)
 						detection.suspicion[ref.id] = detection.suspicion[ref.id] or 0
-						detection.suspicion[ref.id] = math.max(detection.suspicion[ref.id], angleFactor + (0.5 * (1-(sneakSkill/100))))
+						detection.suspicion[ref.id] = math.min(1, math.max(detection.suspicion[ref.id], angleFactor + (0.5 * (1-(sneakSkill/100)))))
 						local pm = tes3.worldController.mobManager.processManager
 						pm:detectSneak(mob, tes3.mobilePlayer, true)
 					end
@@ -384,27 +403,30 @@ local function onSimulate(e)
 
 		if inCombat then
 			local combatStarted = state.combatStarted
-			if os.clock() - combatStarted <= 3 then
+			if onSimulateTime - combatStarted <= 3 then
 				restartDecayTimer(actorId)
-				state.lastUpdate = os.clock()
+				state.lastUpdate = onSimulateTime
 				current = 1
 				inCombatDecayCooldown = true
 				local distance = ref.position:distance(tes3.player.position)
 				if distance < config.baseRange * 2 then
 					local playerSeen = tes3.testLineOfSight({ reference1 = ref, reference2 = tes3.player})
 					if playerSeen then
-						state.combatStarted = os.clock()
+						if ref.mobile.inCombat then
+							state.combatStarted = onSimulateTime
+						end
 					end
 				end
 			end
 		end
 
 		local lastUpdate = state and state.lastUpdate or 0
-		local isStale = (not state) or (os.clock() - lastUpdate) >= staleThreshold
+		local isStale = (not state) or (onSimulateTime - lastUpdate) >= staleThreshold
 		local active = not isStale
 
 		local mob = ref.mobile
-		if active and not inCombatDecayCooldown then
+		
+		if mob and active and not inCombatDecayCooldown then
 
 			local angle = mob:getViewToActor(tes3.mobilePlayer)
 			local angleFactor = getAngleFactor(angle)
@@ -444,10 +466,11 @@ local function onSimulate(e)
 		end
 
 		-- Clean up fully decayed actors
-		if current <= 0 and not active then
+		if current <= 0 then -- and not active then
 			if inCombat then
-				if mob then
+				if mob and mob.inCombat then
 					mob:stopCombat(true)
+					tes3.messageBox(string.format("Combat end for: %s", ref))
 					local wanderRange = mob.cell.isOrBehavesAsExterior and 2000 or 400
 					tes3.setAIWander({ reference = ref, range = wanderRange, reset = true, idles = generateIdles() })
 				end
@@ -491,6 +514,7 @@ event.register(tes3.event.combatStopped, function(e)
     local actorId = e.actor.reference.id
     if detectionState[actorId] then
         detectionState[actorId].inCombat = false
+		detectionState[actorId].combatStarted = nil
     end
 end)
 
@@ -501,9 +525,11 @@ local function onCombatStarted(e)
     local actorId = e.actor.reference.id
     local state = detectionState[actorId] or {}
 
+	tes3.messageBox(string.format("Combat STARTED: %s", actorId))
+
     state.inCombat = true
-    state.combatStarted = os.clock()
-    state.lastUpdate = os.clock()
+    state.combatStarted = onSimulateTime
+    state.lastUpdate = onSimulateTime
 
     detectionState[actorId] = state
 

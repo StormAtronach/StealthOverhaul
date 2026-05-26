@@ -40,10 +40,12 @@ local function onLoad(e)
 
 	-- Interop with Essential Indicators
 	if ei then
+		print("[Stealth Overhaul] Essential Indicators interop activated")
+		if config.eiInteropEnabled then
 		ei.registerDisabledIndicator(ei.indicatorEnum.SneakIndicator, true, true, SO_INTEROP_ID)
 		ei.registerReplacementTexture(ei.textureEnum.DefaultTexture,"textures/sa_so_ch_128/crosshair.dds", SO_INTEROP_ID ,1000)
 		ei.registerScaleOverride(ei.scaleTypeEnum.DefaultIndicatorScale, 240, SO_INTEROP_ID, 1000)
-		print("[Stealth Overhaul] Essential Indicators interop activated")
+		end
 	end
 end
 event.register(tes3.event.loaded,onLoad)

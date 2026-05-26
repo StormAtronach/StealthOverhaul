@@ -2,6 +2,13 @@ local config = require("StormAtronach.SO.config")
 
 local authors = { { name = "Storm Atronach", url = "https://next.nexusmods.com/profile/StormAtronach0" } }
 
+-- Interop with Essential Indicator
+local SO_INTEROP_ID = "StealthOverhaul"
+local eiInstalled, ei = pcall(require, "Essential Indicators.interop")
+if not eiInstalled then
+	ei = nil
+end
+
 --- @param self mwseMCMInfo|mwseMCMHyperlink
 local function center(self)
 	self.elements.info.absolutePosAlignX = 0.5
@@ -267,6 +274,27 @@ local function registerModConfig()
 		max = 5000,
 		step = 100,
 		configKey = "barRange",
+	})
+
+	hud:createCategory({ label = "Interop"})
+
+	hud:createYesNoButton({
+		label = "Essential Indicators interop",
+		description = "When ON, and having version 1.7 or higher of Essential Indicators, you will have all the behavior from Essential Indicators, but matching UI style to the stealth eye.",
+		configKey = "eiInteropEnabled",
+		callback = function() 
+			if ei then
+				if config.eiInteropEnabled then
+					ei.registerDisabledIndicator(ei.indicatorEnum.SneakIndicator, true, true, SO_INTEROP_ID)
+					ei.registerReplacementTexture(ei.textureEnum.DefaultTexture,"textures/sa_so_ch_128/crosshair.dds", SO_INTEROP_ID ,1000)
+					ei.registerScaleOverride(ei.scaleTypeEnum.DefaultIndicatorScale, 240, SO_INTEROP_ID, 1000)
+				else
+					ei.registerDisabledIndicator(ei.indicatorEnum.SneakIndicator, false, false, SO_INTEROP_ID)
+					ei.deregisterReplacementTexture(ei.textureEnum.DefaultTexture, SO_INTEROP_ID)
+					ei.deregisterScaleOverride(ei.scaleTypeEnum.DefaultIndicatorScale, SO_INTEROP_ID)
+				end
+			end
+		end,
 	})
 
 	-- Sneak Strike page

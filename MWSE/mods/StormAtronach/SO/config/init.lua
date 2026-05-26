@@ -41,6 +41,7 @@ local default = {
 	fillbarEnabled = false,
 	markerEnabled = true,
 	barRange = 2000, -- bars/markers only shown within this distance (units)
+	eiInteropEnabled = true,
 	-- Sneak strike
 	sneakStrikeEnabled = true,
 	showSneakStrikeMessage = true, -- show a messageBox with the damage multiplier on a sneak strike
