@@ -385,7 +385,7 @@ local function onSimulate(e)
 	for actorId in pairs(toProcess) do
 		local current = detection.suspicion[actorId] or 0
 		local state = detectionState[actorId]
-		local inCombat = state and state.inCombat or false
+		local inCombat = false
 		local inCombatDecayCooldown = false
 		
 		local ref = tes3.getReference(actorId)
@@ -400,10 +400,41 @@ local function onSimulate(e)
 			end
 			goto continue
 		end
-
+		
+		local mob = ref.mobile
+		if mob then
+			local hostile = mob.hostileActors
+			if hostile and hostile[tes3.mobilePlayer] then
+				inCombat = true
+			end
+			if inCombat and not mob.inCombat then
+				-- stale hostility entry
+				inCombat = false
+			end
+		end
+		
 		if inCombat then
-			local combatStarted = state.combatStarted
-			if onSimulateTime - combatStarted <= 3 then
+			-- For now, just handle pre-combat detection
+			if not state then
+				state = {}
+				detectionState[actorId] = state
+			end
+			state.inCombat = true
+			state.lastUpdate = onSimulateTime
+			current = 1
+			inCombatDecayCooldown = true
+			---------WIP stuff for handling combat AI stop when hiding
+			--[[if not state then
+				state = {}
+				detectionState[actorId] = state
+			end
+			if not state.combatStarted then
+				state.combatStarted = onSimulateTime
+			end
+
+			state.inCombat = true
+
+			if onSimulateTime - state.combatStarted <= 3 then
 				restartDecayTimer(actorId)
 				state.lastUpdate = onSimulateTime
 				current = 1
@@ -417,14 +448,16 @@ local function onSimulate(e)
 						end
 					end
 				end
-			end
+			else
+				state.inCombat = false
+			end]]
 		end
 
 		local lastUpdate = state and state.lastUpdate or 0
 		local isStale = (not state) or (onSimulateTime - lastUpdate) >= staleThreshold
 		local active = not isStale
 
-		local mob = ref.mobile
+		
 		
 		if mob and active and not inCombatDecayCooldown then
 
@@ -458,7 +491,7 @@ local function onSimulate(e)
 
 			restartDecayTimer(actorId)
 			log:trace("Suspicion ↑ for %s: %.3f (+%.4f/frame) rate=%.4f/s", actorId, current, delta, rate)
-		elseif not decayTimers[actorId] then
+		elseif not decayTimers[actorId] and not inCombat then
 			current = math.max(0.0, current - dv * dt)
 			if current > 0 then
 				log:trace("Suspicion ↓ for %s: %.3f (-%.4f/frame)", actorId, current, dv * dt)
@@ -467,14 +500,14 @@ local function onSimulate(e)
 
 		-- Clean up fully decayed actors
 		if current <= 0 then -- and not active then
-			if inCombat then
-				if mob and mob.inCombat then
-					mob:stopCombat(true)
-					tes3.messageBox(string.format("Combat end for: %s", ref))
-					local wanderRange = mob.cell.isOrBehavesAsExterior and 2000 or 400
-					tes3.setAIWander({ reference = ref, range = wanderRange, reset = true, idles = generateIdles() })
-				end
-			end
+			--if inCombat then
+			--	if mob and mob.inCombat then
+			--		mob:stopCombat(true)
+			--		tes3.messageBox(string.format("Combat end for: %s", ref))
+			--		local wanderRange = mob.cell.isOrBehavesAsExterior and 2000 or 400
+			--		tes3.setAIWander({ reference = ref, range = wanderRange, reset = true, idles = generateIdles() })
+			--	end
+			--end
 			detection.suspicion[actorId] = nil
 			detectionState[actorId] = nil
 			sneakChanceLogTime[actorId] = nil
@@ -509,12 +542,13 @@ local function onDeath(e)
 end
 event.register(tes3.event.death, onDeath)
 
-event.register(tes3.event.combatStopped, function(e)
+--[[event.register(tes3.event.combatStopped, function(e)
 	if not e.actor or not e.actor.reference then return end
     local actorId = e.actor.reference.id
     if detectionState[actorId] then
         detectionState[actorId].inCombat = false
 		detectionState[actorId].combatStarted = nil
+		tes3.messageBox(string.format("Combat STOPPED: %s", actorId))
     end
 end)
 
@@ -537,7 +571,7 @@ local function onCombatStarted(e)
 		tes3.messageBox(string.format"Started combat with: %s", actorId)
 	end
 end
-event.register(tes3.event.combatStarted, onCombatStarted)
+event.register(tes3.event.combatStarted, onCombatStarted)]]
 
 --- Returns the current suspicion level (0.0–1.0) for the given actor ID.
 ---@param actorId string
