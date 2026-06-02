@@ -319,6 +319,19 @@ local function detectSneakCallback(e)
 end
 event.register(tes3.event.detectSneak, detectSneakCallback, { priority = 1000 })
 
+
+local function actorFightsPlayer(actorMobile)
+	for _, actor in ipairs(actorMobile.hostileActors) do
+		if actor.reference == tes3.player then
+			--tes3.messageBox(string.format("Actor IN FIGHT WITH player: %s", actorMobile.reference.id))
+			return true
+		end
+	end
+	--tes3.messageBox(string.format("Actor not hostile towards player: %s", actorMobile.reference.id))
+	return false
+end
+
+
 --- Simulate runs every frame. This is where time-based accumulation/decay happens,
 --- matching the OpenMW approach: progress changes at velocity * dt, independent of
 --- AI tick frequency.
@@ -356,6 +369,8 @@ local function onSimulate(e)
 	end
 	wasSneaking = isSneaking
 
+
+
 	-- Nothing to process if no actor is being tracked
 	if not next(detection.suspicion) and not next(detectionState) then
 		return
@@ -377,6 +392,21 @@ local function onSimulate(e)
 		toProcess[id] = true
 	end
 
+	if tes3.mobilePlayer.inCombat then
+		local nearby = tes3.findActorsInProximity({ reference = tes3.player, range = config.baseRange })
+		for _, mob in ipairs(nearby) do
+			if mob ~= tes3.mobilePlayer then
+				if mob then
+					if actorFightsPlayer(mob) then
+						toProcess[mob.reference.id] = true
+						local state = detectionState[mob.reference.id] or {}
+						state.inCombat = true
+					end
+				end
+			end
+		end
+	end
+
 	
 	local standingStill = tes3.mobilePlayer.velocity:length() < 5
 	local chameleon = tes3.mobilePlayer.chameleon or 0
@@ -384,7 +414,7 @@ local function onSimulate(e)
 	
 	for actorId in pairs(toProcess) do
 		local current = detection.suspicion[actorId] or 0
-		local state = detectionState[actorId]
+		local state = detectionState[actorId] or {}
 		local inCombat = false
 		local inCombatDecayCooldown = false
 		
@@ -402,32 +432,22 @@ local function onSimulate(e)
 		end
 		
 		local mob = ref.mobile
-		if mob then
-			local hostile = mob.hostileActors
-			if hostile and hostile[tes3.mobilePlayer] then
-				inCombat = true
-			end
-			if inCombat and not mob.inCombat then
-				-- stale hostility entry
-				inCombat = false
-			end
-		end
-		
-		if inCombat then
-			-- For now, just handle pre-combat detection
-			if not state then
-				state = {}
-				detectionState[actorId] = state
-			end
-			state.inCombat = true
-			state.lastUpdate = onSimulateTime
-			current = 1
-			inCombatDecayCooldown = true
+		--if mob then
+		--	if actorFightsPlayer(mob) then
+		--		inCombat = true
+		--	end
+		--end
+
+		if state.inCombat then
+			--state.inCombat = true
+			--state.lastUpdate = onSimulateTime
+			--current = 1
+			--inCombatDecayCooldown = true
 			---------WIP stuff for handling combat AI stop when hiding
-			--[[if not state then
-				state = {}
-				detectionState[actorId] = state
-			end
+			--if not state then
+			--	state = {}
+			--	detectionState[actorId] = state
+			--end
 			if not state.combatStarted then
 				state.combatStarted = onSimulateTime
 			end
@@ -450,7 +470,7 @@ local function onSimulate(e)
 				end
 			else
 				state.inCombat = false
-			end]]
+			end
 		end
 
 		local lastUpdate = state and state.lastUpdate or 0
@@ -500,14 +520,14 @@ local function onSimulate(e)
 
 		-- Clean up fully decayed actors
 		if current <= 0 then -- and not active then
-			--if inCombat then
-			--	if mob and mob.inCombat then
-			--		mob:stopCombat(true)
-			--		tes3.messageBox(string.format("Combat end for: %s", ref))
-			--		local wanderRange = mob.cell.isOrBehavesAsExterior and 2000 or 400
-			--		tes3.setAIWander({ reference = ref, range = wanderRange, reset = true, idles = generateIdles() })
-			--	end
-			--end
+			if state.inCombat then
+				if mob and mob.inCombat then
+					mob:stopCombat(true)
+					tes3.messageBox(string.format("Combat end for: %s", ref))
+					local wanderRange = mob.cell.isOrBehavesAsExterior and 2000 or 400
+					tes3.setAIWander({ reference = ref, range = wanderRange, reset = true, idles = generateIdles() })
+				end
+			end
 			detection.suspicion[actorId] = nil
 			detectionState[actorId] = nil
 			sneakChanceLogTime[actorId] = nil
