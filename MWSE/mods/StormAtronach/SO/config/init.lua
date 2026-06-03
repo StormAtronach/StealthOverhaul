@@ -24,6 +24,7 @@ local default = {
 	detFloor = 0.03, -- min detection rate within range (prevents true invisibility)
 	fillTime = 1.0, -- seconds at rate=1.0 to fill bar from 0→100%
 	hidingBonus = 0.1,
+	combatHidingTimer = 0,
 	-- Light mechanic
 	lightMechanicEnabled = true, -- increase detection rate when player is inside a light source's radius
 	lightRateMult = 2.0, -- detection rate multiplier when player is in a light source (>1 = faster detection)

@@ -185,6 +185,15 @@ local function registerModConfig()
 		configKey = "hidingBonus",
 	})
 
+	detection:createSlider({
+		label = "Combat hiding timers",
+		decription = "Amount of seconds from last seen during combat before suspicion starts to decay.",
+		min = 0,
+		max = 10,
+		step = 1,
+		configKey = "combatHidingTimer",
+	})
+
 
 	--[[ Steal Suspicion Bonus: disabled while onCrimeWitnessed is commented out.
 	detection:createSlider({
