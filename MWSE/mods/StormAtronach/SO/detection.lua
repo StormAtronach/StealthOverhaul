@@ -320,26 +320,23 @@ local function onSimulate(e)
 		if nearby then
 			for _, mob in ipairs(nearby) do
 				---@cast mob tes3mobileActor
-				if mob ~= tes3.mobilePlayer and tes3.testLineOfSight({ reference1 = mob.reference, reference2 = tes3.player}) then
-					local ref = mob.reference
-					if ref then
-						local angle = mob:getViewToActor(tes3.mobilePlayer)
-						local angleFactor = getAngleFactor(angle)
-						local sneakSkill = math.min(tes3.mobilePlayer.sneak.current, 100)
-						detection.suspicion[ref.id] = detection.suspicion[ref.id] or 0
-						detection.suspicion[ref.id] = math.min(1, math.max(detection.suspicion[ref.id], angleFactor + (0.5 * (1-(sneakSkill/100)))))
-						
-						
-						local state = detectionState[ref.id] or {}
-						state.lastUpdate = onSimulateTime
-						state.rate = state.rate or config.detFloor
-						detectionState[ref.id] = state
+				local ref = mob.reference
+				if ref and mob ~= tes3.mobilePlayer and tes3.testLineOfSight({ reference1 = ref, reference2 = tes3.player}) then
+					local angle = mob:getViewToActor(tes3.mobilePlayer)
+					local angleFactor = getAngleFactor(angle)
+					local sneakSkill = math.min(tes3.mobilePlayer.sneak.current, 100)
+					detection.suspicion[ref.id] = detection.suspicion[ref.id] or 0
+					detection.suspicion[ref.id] = math.min(1, math.max(detection.suspicion[ref.id], angleFactor + (0.5 * (1-(sneakSkill/100)))))
 
-						local playerSeen = tes3.testLineOfSight({ reference1 = ref, reference2 = tes3.player })
-						if playerSeen then
-							local pm = tes3.worldController.mobManager.processManager
-							pm:detectSneak(mob, tes3.mobilePlayer, true)
-						end
+					local state = detectionState[ref.id] or {}
+					state.lastUpdate = onSimulateTime
+					state.rate = state.rate or config.detFloor
+					detectionState[ref.id] = state
+
+					local playerSeen = tes3.testLineOfSight({ reference1 = ref, reference2 = tes3.player })
+					if playerSeen then
+						local pm = tes3.worldController.mobManager.processManager
+						pm:detectSneak(mob, tes3.mobilePlayer, true)
 					end
 				end
 			end
