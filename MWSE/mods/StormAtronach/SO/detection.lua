@@ -260,13 +260,13 @@ local function detectSneakCallback(e)
 	if tes3.mobilePlayer.inCombat then
 		local playerSeen = tes3.testLineOfSight({ reference1 = ref, reference2 = tes3.player })
 		if playerSeen then
-			rate = config.detCap
+			rate = config.detCap --TODO: Add a tweakable multiplier here
 		end
 	end
 
 	state.rate = rate
 
-	-- Allow the actor suspicion to go stale if suspicion is zero
+	-- Check if player is hiding -> Stands still, is behind enemy, and not in a light
 	local angle = detector:getViewToActor(tes3.mobilePlayer)
 	local angleFactor = getAngleFactor(angle)
 	local hidingTerm = (1 - angleFactor) * config.hidingBonus
@@ -275,6 +275,7 @@ local function detectSneakCallback(e)
 	local chameleon = tes3.mobilePlayer.chameleon or 0
 	rate = rate * (1 - (chameleon / 100))
 
+	-- Allow the actor suspicion to go stale if suspicion is zero
 	local shouldWeLetActorGoStale = math.clamp(rate - hidingTerm, 0, config.detCap)
 	if shouldWeLetActorGoStale > 0 then
 		state.lastUpdate = onSimulateTime
@@ -431,7 +432,7 @@ local function onSimulate(e)
 		end
 
 		local active = not isStale
-
+		-- DEBUG
 		tes3.messageBox(
 			"Guard %s | current=%.3f | active=%s | inCombat=%s | rate=%.4f",
 			actorId,
@@ -440,10 +441,17 @@ local function onSimulate(e)
 			tostring(inCombat),
 			state.rate or -1
 		)
+
+		if mob then
+			tes3.messageBox("Mob exists")
+		else
+			tes3.messageBox("Mob does NOT exist")
+		end
+
+		-- DEBUG END
 		
 		if mob and active and not inCombat then
-			-- TODO: Look at if mob exists for guards, and how to handle them.
-			tes3.messageBox("Mob exists")
+			
 			local angle = mob:getViewToActor(tes3.mobilePlayer)
 			local angleFactor = getAngleFactor(angle)
 			local rate = state.rate or config.detFloor
