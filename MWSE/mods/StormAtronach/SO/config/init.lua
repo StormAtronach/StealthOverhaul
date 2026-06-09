@@ -29,7 +29,7 @@ local default = {
 	combatDetectionMultiplier = 1, -- When player fights anything, other actors have their suspicion rate set to detCap * this multiplier. The idea is that hiding while fighting is not possible, but the exact amount can be tweaked here.
 	-- Light mechanic
 	lightMechanicEnabled = true, -- increase detection rate when player is inside a light source's radius
-	lightRateMult = 2.0, -- detection rate multiplier when player is in a light source (>1 = faster detection)
+	lightRateMult = 1.5, -- detection rate multiplier when player is in a light source (>1 = faster detection)
 	decayTime = 10, -- seconds to clear full suspicion (1→0) after decay delay
 	suspicionDecayDelay = 3, -- seconds before decay begins after last increase
 	stealSuspicionBonus = 50, -- bonus added on undetected theft (0–100 maps to 0.0–1.0 of progress)

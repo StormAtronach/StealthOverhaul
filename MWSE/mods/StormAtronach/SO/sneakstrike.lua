@@ -104,9 +104,6 @@ local function attackHitCallback(e)
 		return
 	end
 
-	detection.addSuspicion(e.targetReference, 1)
-	e.targetMobile.isPlayerDetected = true
-
 	-- Determine weapon type key
 	local weaponTypeKey
 	local weapon = e.mobile.readiedWeapon
@@ -184,6 +181,8 @@ local function damagedCallback(e)
 	pendingSneakTarget = nil
 	if e.attacker == tes3.mobilePlayer and e.reference == target and e.damage >= 1 then
 		tes3.messageBox(msg)
+		detection.addSuspicion(e.reference, 1)
+		e.mobile.isPlayerDetected = true
 	end
 end
 event.register(tes3.event.damaged, damagedCallback, { priority = -10000 })

@@ -218,7 +218,6 @@ event.register(tes3.event.skillRaised, onSkillRaised)
 local function actorFightsPlayer(actorMobile)
 	for _, actor in ipairs(actorMobile.hostileActors) do
 		if actor.reference == tes3.player then
-			tes3.messageBox("IN FIGHT WITH PLAYER")
 			return true
 		end
 	end
@@ -483,7 +482,6 @@ local function onSimulate(e)
 		if current <= 0 and not active then
 			if mob and mob.inCombat and state.combatStarted ~= nil then
 				mob:stopCombat(true)
-				tes3.messageBox(string.format("Combat end for: %s", ref))
 				local wanderRange = mob.cell.isOrBehavesAsExterior and 2000 or 400
 				tes3.setAIWander({ reference = ref, range = wanderRange, reset = true, idles = generateIdles() })
 			end
@@ -505,9 +503,6 @@ local function onDeath(e)
 	local ref = e.reference
 	if not ref then
 		 return
-	end
-	if log.level >= mwse.logLevel.debug then
-		tes3.messageBox("Actor dead, cleaning up values for: %s", ref.id)
 	end
 	detection.suspicion[ref] = nil
 	detectionState[ref] = nil

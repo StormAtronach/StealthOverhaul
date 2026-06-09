@@ -104,7 +104,7 @@ local function createCrosshair()
 	block.autoHeight = true
 	block.consumeMouseEvents = false
 
-	local size = config.crosshairSize
+	local size = 128--config.crosshairSize -- Instead of relying on MCM, always set to 128 as that is the only one that matters anylonger with scale added. This way we don't have to change config files for people who already installed.
 	for i = 1, MARKER_FRAME_COUNT do
 		local img = block:createImage({ path = string.format("textures/sa_so_ch_%d/%d.dds", size, i) })
 		img.visible = false
