@@ -23,8 +23,10 @@ local default = {
 	detCap = 1.0, -- max detection rate per second (prevents instant-fill)
 	detFloor = 0.03, -- min detection rate within range (prevents true invisibility)
 	fillTime = 1.0, -- seconds at rate=1.0 to fill bar from 0→100%
-	hidingBonus = 0.1,
-	combatHidingTimer = 0,
+	hidingBonus = 0.1, -- Multiplier to see how strong the effect of hiding is (standing still, being outside of light, and being behind enemies). 
+	combatHidingTimer = 0, -- How long time in seconds that enemies are guaranteed to follow the player before the player can hide again after starting combat.
+	startStealthSuspicionMultiplier = 1, -- A multiplier to tweak how much or how little enemies detect the player when they start sneaking
+	combatDetectionMultiplier = 1, -- When player fights anything, other actors have their suspicion rate set to detCap * this multiplier. The idea is that hiding while fighting is not possible, but the exact amount can be tweaked here.
 	-- Light mechanic
 	lightMechanicEnabled = true, -- increase detection rate when player is inside a light source's radius
 	lightRateMult = 2.0, -- detection rate multiplier when player is in a light source (>1 = faster detection)

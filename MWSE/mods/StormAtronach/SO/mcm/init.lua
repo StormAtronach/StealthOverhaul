@@ -1,6 +1,9 @@
 local config = require("StormAtronach.SO.config")
 
-local authors = { { name = "Storm Atronach", url = "https://next.nexusmods.com/profile/StormAtronach0" } }
+local authors = { 
+	{ name = "Storm Atronach", url = "https://next.nexusmods.com/profile/StormAtronach0" },
+	{ name = "Rhjelte", url = "https://www.nexusmods.com/profile/rhjelte" },
+}
 
 -- Interop with Essential Indicator
 local SO_INTEROP_ID = "StealthOverhaul"
@@ -8,6 +11,36 @@ local eiInstalled, ei = pcall(require, "Essential Indicators.interop")
 if not eiInstalled then
 	ei = nil
 end
+
+local function toggleEssentialIndicatorCrosshair()
+		if ei then
+			if config.crosshairColorEnabled and config.eiInteropEnabled and config.modEnabled then
+				ei.registerDisabledIndicator(ei.indicatorEnum.SneakIndicator, true, true, SO_INTEROP_ID)
+				ei.registerReplacementTexture(ei.textureEnum.DefaultTexture,"textures/sa_so_ch_128/crosshair.dds", SO_INTEROP_ID ,1000)
+
+				local soUiScale = config.crosshairScale
+				local scaleDifference = 4 -- To match the size of our 128px crosshair, we need to multiply Essential Indicators 32px crosshair by 4
+				local eiScale = 100 * scaleDifference * soUiScale
+				ei.registerScaleOverride(ei.scaleTypeEnum.DefaultIndicatorScale, eiScale, SO_INTEROP_ID, 1000)
+			else
+				ei.registerDisabledIndicator(ei.indicatorEnum.SneakIndicator, false, false, SO_INTEROP_ID)
+				ei.deregisterReplacementTexture(ei.textureEnum.DefaultTexture, SO_INTEROP_ID)
+				ei.deregisterScaleOverride(ei.scaleTypeEnum.DefaultIndicatorScale, SO_INTEROP_ID)
+			end
+		end
+	end
+
+	local function rescaleEiIndicator()
+		if ei then
+			if config.eiInteropEnabled and config.crosshairColorEnabled then
+				ei.deregisterScaleOverride(ei.scaleTypeEnum.DefaultIndicatorScale, SO_INTEROP_ID)
+				local soUiScale = config.crosshairScale
+				local scaleDifference = 4 -- Based on 128px sprite, whereas mw and essential indicator crosshair sprite is 32px
+				local eiScale = 100 * scaleDifference * soUiScale
+				ei.registerScaleOverride(ei.scaleTypeEnum.DefaultIndicatorScale, eiScale, SO_INTEROP_ID, 1000)
+			end
+		end
+	end
 
 --- @param self mwseMCMInfo|mwseMCMHyperlink
 local function center(self)
@@ -44,6 +77,9 @@ local function registerModConfig()
 		label = "Enable Mod",
 		description = "Enable or disable Stealth Overhaul.",
 		configKey = "modEnabled",
+		callback = function()
+			toggleEssentialIndicatorCrosshair()
+		end,
 	})
 
 	page:createLogLevelOptions({ configKey = "logLevel" })
@@ -179,7 +215,7 @@ local function registerModConfig()
 		label = "Hiding bonus",
 		description = "Standing still behind an NPC and not in a light subtracts from the current tick up rate, and can even make suspicion go down again. 0 means this feature is turned off.",
 		min = 0,
-		max = 1,
+		max = 0.4,
 		step = 0.01,
 		decimalPlaces = 2,
 		configKey = "hidingBonus",
@@ -189,11 +225,30 @@ local function registerModConfig()
 		label = "Combat hiding timers",
 		decription = "Amount of seconds from last seen during combat before suspicion starts to decay.",
 		min = 0,
-		max = 10,
+		max = 5,
 		step = 1,
 		configKey = "combatHidingTimer",
 	})
 
+	detection:createSlider({
+		label = "Combat detection multiplier",
+		decription = "When player fights anything, other actors have their suspicion rate set to the Detection Rate Cap multiplied with this multiplier. The idea is that hiding while fighting is not possible, but the exact amount can be tweaked here. Default is 1.",
+		min = 0,
+		max = 2,
+		step = 0.1,
+		decimalPlaces = 1,
+		configKey = "combatDetectionMultiplier",
+	})
+
+	detection:createSlider({
+		label = "Start stealth suspicion multiplier",
+		decription = "When you start sneaking, different actors will gain an amount of suspicion based on several factors (if you are behind them or not etc.). This multiplier makes them get a higher or lower initial suspicion value.",
+		min = 0.1,
+		max = 2,
+		step = 0.1,
+		decimalPlaces = 1,
+		configKey = "startStealthSuspicionMultiplier",
+	})
 
 	--[[ Steal Suspicion Bonus: disabled while onCrimeWitnessed is commented out.
 	detection:createSlider({
@@ -215,6 +270,9 @@ local function registerModConfig()
 		label = "Sneak Eye Crosshair",
 		description = "While sneaking, overlays the crosshair with an animated sneak eye that opens as suspicion rises (closed at 0, fully open at 1.0). Reflects the highest suspicion among nearby actors, meaning enemies will attack you, and neutral NPCs will notice a crime committed when they have line of sight when the eye is fully opened.",
 		configKey = "crosshairColorEnabled",
+		callback = function()
+			toggleEssentialIndicatorCrosshair()
+		end,
 	})
 
 	hud:createSlider({
@@ -227,6 +285,7 @@ local function registerModConfig()
 		configKey = "crosshairScale",
 		callback = function()
 			event.trigger("SA_SO_crosshairRecreate")
+			rescaleEiIndicator()
 		end,
 	})
 
@@ -292,17 +351,7 @@ local function registerModConfig()
 		description = "When ON, and having version 1.7 or higher of Essential Indicators, you will have all the behavior from Essential Indicators, but matching UI style to the stealth eye.",
 		configKey = "eiInteropEnabled",
 		callback = function() 
-			if ei then
-				if config.eiInteropEnabled then
-					ei.registerDisabledIndicator(ei.indicatorEnum.SneakIndicator, true, true, SO_INTEROP_ID)
-					ei.registerReplacementTexture(ei.textureEnum.DefaultTexture,"textures/sa_so_ch_128/crosshair.dds", SO_INTEROP_ID ,1000)
-					ei.registerScaleOverride(ei.scaleTypeEnum.DefaultIndicatorScale, 240, SO_INTEROP_ID, 1000)
-				else
-					ei.registerDisabledIndicator(ei.indicatorEnum.SneakIndicator, false, false, SO_INTEROP_ID)
-					ei.deregisterReplacementTexture(ei.textureEnum.DefaultTexture, SO_INTEROP_ID)
-					ei.deregisterScaleOverride(ei.scaleTypeEnum.DefaultIndicatorScale, SO_INTEROP_ID)
-				end
-			end
+			toggleEssentialIndicatorCrosshair()
 		end,
 	})
 

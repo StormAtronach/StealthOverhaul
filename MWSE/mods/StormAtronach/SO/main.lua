@@ -41,10 +41,14 @@ local function onLoad(e)
 	-- Interop with Essential Indicators
 	if ei then
 		print("[Stealth Overhaul] Essential Indicators interop activated")
-		if config.eiInteropEnabled then
-		ei.registerDisabledIndicator(ei.indicatorEnum.SneakIndicator, true, true, SO_INTEROP_ID)
-		ei.registerReplacementTexture(ei.textureEnum.DefaultTexture,"textures/sa_so_ch_128/crosshair.dds", SO_INTEROP_ID ,1000)
-		ei.registerScaleOverride(ei.scaleTypeEnum.DefaultIndicatorScale, 240, SO_INTEROP_ID, 1000)
+		if config.eiInteropEnabled and config.crosshairColorEnabled and config.modEnabled then
+			ei.registerDisabledIndicator(ei.indicatorEnum.SneakIndicator, true, true, SO_INTEROP_ID)
+			ei.registerReplacementTexture(ei.textureEnum.DefaultTexture,"textures/sa_so_ch_128/crosshair.dds", SO_INTEROP_ID ,1000)
+
+			local soUiScale = config.crosshairScale
+			local scaleDifference = 4 -- Based on 128px sprite, whereas mw and essential indicator crosshair sprite is 32px
+			local eiScale = 100 * scaleDifference * soUiScale
+			ei.registerScaleOverride(ei.scaleTypeEnum.DefaultIndicatorScale, eiScale, SO_INTEROP_ID, 1000)
 		end
 	end
 end
