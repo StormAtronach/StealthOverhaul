@@ -223,7 +223,7 @@ local function registerModConfig()
 
 	detection:createSlider({
 		label = "Combat hiding timers",
-		decription = "Amount of seconds from last seen during combat before suspicion starts to decay.",
+		description = "Amount of seconds from last seen during combat before suspicion starts to decay.",
 		min = 0,
 		max = 5,
 		step = 1,
@@ -232,7 +232,7 @@ local function registerModConfig()
 
 	detection:createSlider({
 		label = "Combat detection multiplier",
-		decription = "When player fights anything, other actors have their suspicion rate set to the Detection Rate Cap multiplied with this multiplier. The idea is that hiding while fighting is not possible, but the exact amount can be tweaked here. Default is 1.",
+		description = "When player fights anything, other actors have their suspicion rate set to the Detection Rate Cap multiplied with this multiplier. The idea is that hiding while fighting is not possible, but the exact amount can be tweaked here.",
 		min = 0,
 		max = 2,
 		step = 0.1,
@@ -242,7 +242,7 @@ local function registerModConfig()
 
 	detection:createSlider({
 		label = "Start stealth suspicion multiplier",
-		decription = "When you start sneaking, different actors will gain an amount of suspicion based on several factors (if you are behind them or not etc.). This multiplier makes them get a higher or lower initial suspicion value.",
+		description = "When you start sneaking, different actors will gain an amount of suspicion based on several factors (if you are behind them or not etc.). This multiplier makes them get a higher or lower initial suspicion value.",
 		min = 0.1,
 		max = 2,
 		step = 0.1,
