@@ -94,7 +94,7 @@ local function attackHitCallback(e)
 	if not tes3.mobilePlayer.isSneaking then
 		return
 	end
-	if not e.targetMobile then
+	if (not e.targetMobile) or (not e.targetReference) then
 		return
 	end
 	if not (e.targetMobile.actorType == tes3.actorType.creature or e.targetMobile.actorType == tes3.actorType.npc) then
@@ -104,7 +104,7 @@ local function attackHitCallback(e)
 		return
 	end
 
-	detection.addSuspicion(e.reference.id, 1)
+	detection.addSuspicion(e.targetReference, 1)
 	e.targetMobile.isPlayerDetected = true
 
 	-- Determine weapon type key
