@@ -4,6 +4,7 @@ local log = mwse.Logger.new({
     level = config.logLevel
 })
 local detection = require("StormAtronach.SO.detection")
+local experience = require("StormAtronach.SO.experience")
 
 --- Linearly interpolate the sneak-skill damage multiplier.
 local skillBreakpoints = {0, 25, 50, 75, 100}
@@ -191,6 +192,7 @@ local function damagedCallback(e)
         1 then
         tes3.messageBox(msg)
         log:debug("%s damage was %s", e.reference.id, e.damage)
+        experience.levelSneak(experience.Source.sneakStrike, 0)
     end
 end
 event.register(tes3.event.damaged, damagedCallback, {priority = -10000})

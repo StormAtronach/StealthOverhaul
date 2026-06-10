@@ -1,4 +1,5 @@
 local config = require("StormAtronach.SO.config")
+local experience = require("StormAtronach.SO.experience")
 
 local log = mwse.Logger.new({ moduleName = "detection", level = config.logLevel })
 
@@ -303,6 +304,9 @@ event.register(tes3.event.detectSneak, detectSneakCallback, { priority = 1000 })
 
 
 
+local detectionExperienceTimer = 0
+local gainExp = false
+
 --- Simulate runs every frame. This is where time-based accumulation/decay happens,
 --- matching the OpenMW approach: progress changes at velocity * dt, independent of
 --- AI tick frequency.
@@ -373,6 +377,9 @@ local function onSimulate(e)
 	local chameleon = tes3.mobilePlayer.chameleon or 0
 	local invisible = tes3.mobilePlayer.invisibility > 0 or chameleon >= 100
 
+	gainExp = false
+	
+
 	for ref in pairs(toProcess) do
 		
 		if not ref:isValid() then
@@ -420,10 +427,16 @@ local function onSimulate(e)
 			end
 		end
 
+		
+
 		-- Never-stamped (nil) actors count as stale; explicit nil check avoids an early-load quirk.
 		local lastUpdate = state.lastUpdate
 		local isStale = (lastUpdate == nil) or (onSimulateTime - lastUpdate) >= staleThreshold
 		local active = not isStale
+
+		if active and not hostile and state.rate > config.detFloor and current < 1 and tes3.mobilePlayer.isSneaking then
+    		gainExp = true
+		end
 
 		-- DEBUG: per-actor diagnostic message box (enable by raising logLevel to debug/trace)
 		if log.level >= mwse.logLevel.debug then
@@ -497,6 +510,14 @@ local function onSimulate(e)
 			detection.suspicion[ref] = current
 		end
 		::continue::
+	end
+
+	if gainExp then
+		detectionExperienceTimer = detectionExperienceTimer + dt
+		if detectionExperienceTimer >= 1 then
+			detectionExperienceTimer = 0
+			experience.levelSneak(experience.Source.avoidDetection, 0)
+		end
 	end
 end
 event.register(tes3.event.simulate, onSimulate)

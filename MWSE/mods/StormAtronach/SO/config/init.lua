@@ -67,6 +67,11 @@ local default = {
 		marksmanCrossbow = 1.5,
 		marksmanThrown = 1.5,
 	},
+	-- Experience settings
+	detectionExpMultiplier = 1,
+	stealItemExpMultiplier = 1,
+	pickPocketExpMultiplier = 1,
+	sneakStrikeExpMultiplier = 1,
 	-- Debug
 	debugLines = false,
 }
