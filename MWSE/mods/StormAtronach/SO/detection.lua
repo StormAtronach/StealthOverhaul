@@ -6,7 +6,7 @@ local detection = {}
 
 local onSimulateTime = 0
 
--- Per-actor suspicion progress: 0.0 (unseen) → 1.0 (fully detected).
+-- Per-actor suspicion progress: 0.0 (unseen) -> 1.0 (fully detected).
 -- Read by stealthbar.lua.
 detection.suspicion = {}
 
@@ -156,7 +156,7 @@ local function computeDetectionRate(detector, distance)
 	local distanceFactor = math.max(0, 1 - distance / effectiveRange) ^ config.distPow
 
 	-- Angle factor: continuous from 0.25 (directly behind NPC) to 1.0 (face-on)
-	-- getViewToActor: 0 = directly in front, ±180 = directly behind
+	-- getViewToActor: 0 = directly in front, +/-180 = directly behind
 	local angle = detector:getViewToActor(player)
 
 	local angleFactor = getAngleFactor(angle)
@@ -420,23 +420,25 @@ local function onSimulate(e)
 			end
 		end
 
-		local lastUpdate = state and state.lastUpdate or 0
-		local isStale = (not state) or (onSimulateTime - lastUpdate) >= staleThreshold
+		-- Never-stamped (nil) actors count as stale; explicit nil check avoids an early-load quirk.
+		local lastUpdate = state.lastUpdate
+		local isStale = (lastUpdate == nil) or (onSimulateTime - lastUpdate) >= staleThreshold
 		local active = not isStale
 
+		-- DEBUG: per-actor diagnostic message box (enable by raising logLevel to debug/trace)
 		if log.level >= mwse.logLevel.debug then
 			tes3.messageBox(
-				"Ref: %s | current=%.3f | active=%s | state.inCombat=%s |  enemyInPursuitWindow=%s | rate=%.4f | timestamp=%.3f | player.InCombat=%s",
-				ref.id,
-				current,
-				tostring(active),
-				tostring(state.inCombat),
-				tostring(enemyInPursuitWindow),
-				state.rate or -1,
-				onSimulateTime,
-				tostring(tes3.mobilePlayer.inCombat)
-			)
-		end
+		 		"Ref: %s | current=%.3f | active=%s | state.inCombat=%s |  enemyInPursuitWindow=%s | rate=%.4f | timestamp=%.3f | player.InCombat=%s",
+		 		ref.id,
+		 		current,
+		 		tostring(active),
+		 		tostring(state.inCombat),
+		 		tostring(enemyInPursuitWindow),
+		 		state.rate or -1,
+		 		onSimulateTime,
+		 		tostring(tes3.mobilePlayer.inCombat)
+		 	)
+		 end
 		
 		if mob and active and not enemyInPursuitWindow then
 			
@@ -470,11 +472,11 @@ local function onSimulate(e)
 
 
 			restartDecayTimer(ref)
-			log:trace("Suspicion ↑ for %s: %.3f (+%.4f/frame) rate=%.4f/s", ref.id, current, delta, rate)
+			log:trace("Suspicion up for %s: %.3f (+%.4f/frame) rate=%.4f/s", ref.id, current, delta, rate)
 		elseif not decayTimers[ref] and not enemyInPursuitWindow then
 			current = math.max(0.0, current - dv * dt)
 			if current > 0 then
-				log:trace("Suspicion ↓ for %s: %.3f (-%.4f/frame)", ref.id, current, dv * dt)
+				log:trace("Suspicion down for %s: %.3f (-%.4f/frame)", ref.id, current, dv * dt)
 			end
 		end
 
@@ -535,7 +537,7 @@ end
 event.register(tes3.event.combatStarted, onCombatStarted)
 
 
---- Returns the current suspicion level (0.0–1.0) for the given actor ID.
+--- Returns the current suspicion level (0.0-1.0) for the given actor ID.
 ---@param ref tes3reference
 ---@return number
 function detection.getSuspicion(ref)
@@ -547,7 +549,7 @@ end
 
 --- Adds suspicion to an actor, capped at 1.0. Restarts the decay delay timer.
 ---@param ref tes3reference
----@param amount number  0.0–1.0
+---@param amount number  0.0-1.0
 function detection.addSuspicion(ref, amount)
 	if ref:isValid() then
 		local current = math.min((detection.suspicion[ref] or 0) + amount, 1.0)

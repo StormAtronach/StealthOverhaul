@@ -152,7 +152,7 @@ local function registerModConfig()
 
 	detection:createSlider({
 		label = "Detection Rate Cap",
-		description = "Maximum detection rate per second (0–1). Prevents instant detection even at point-blank. Default 0.95.",
+		description = "Maximum detection rate per second (0-1). Prevents instant detection even at point-blank. Default 0.95.",
 		min = 0.1,
 		max = 1.0,
 		step = 0.05,

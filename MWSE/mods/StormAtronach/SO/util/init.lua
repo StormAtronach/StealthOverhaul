@@ -272,7 +272,7 @@ function util.gotCaughtOwner(npcSafeHandle)
         "Caught red-handed, Outlander - that's not yours!",
         "Pilferer! Did you think no one would notice?",
         "Hand it over, scum. You've been found out.",
-        "Fetcher's fingers are quick… but not quick enough.",
+        "Fetcher's fingers are quick... but not quick enough.",
         "Do you think the Tribunal turns a blind eye, N'wah?",
         "Even a guar could see you're a thief.",
         "You shame yourself, and the laws of Morrowind.",

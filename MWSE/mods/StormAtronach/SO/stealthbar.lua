@@ -27,7 +27,7 @@ local function lerp(start, goal, alpha)
 end
 
 --- Map suspicion level to one of five discrete crosshair frames at fixed thresholds.
----@param suspicion number  0.0–1.0
+---@param suspicion number  0.0-1.0
 ---@return number  frame index (1 = open, 21 = closed)
 local function quantizeFrame(suspicion)
 	if suspicion >= 1.0 then
@@ -50,7 +50,7 @@ local function getVanillaCrosshairNode()
 	return nc and nc.children[1]
 end
 
----@param frameIndex number|nil  1–21 to show that frame, nil to hide all
+---@param frameIndex number|nil  1-21 to show that frame, nil to hide all
 local function setCrosshairFrame(frameIndex)
 	if frameIndex == crosshairActiveFrame then
 		return
@@ -104,7 +104,7 @@ local function createCrosshair()
 	block.autoHeight = true
 	block.consumeMouseEvents = false
 
-	local size = 128--config.crosshairSize -- Instead of relying on MCM, always set to 128 as that is the only one that matters anylonger with scale added. This way we don't have to change config files for people who already installed.
+	local size = 128 --config.crosshairSize -- Instead of relying on MCM, always set to 128 as that is the only one that matters anylonger with scale added. This way we don't have to change config files for people who already installed.
 	for i = 1, MARKER_FRAME_COUNT do
 		local img = block:createImage({ path = string.format("textures/sa_so_ch_%d/%d.dds", size, i) })
 		img.visible = false
@@ -276,7 +276,7 @@ local function getDisplayValue(ref, dt)
 	local alpha = 1 - math.exp(-k * dt)
 	local display = state.display + (actual - state.display) * alpha
 
-	-- Threshold was 0.5 (old 0–100 scale); corrected to 0.005 for 0–1 scale
+	-- Threshold was 0.5 (old 0-100 scale); corrected to 0.005 for 0-1 scale
 	if display < 0.005 and actual <= 0 then
 		displayState[ref] = nil
 		return 0
@@ -287,7 +287,7 @@ local function getDisplayValue(ref, dt)
 	return display
 end
 
---- Project a world position to normalized screen coords (0–1, top-left origin).
+--- Project a world position to normalized screen coords (0-1, top-left origin).
 --- Returns {x, y}, or nil if outside the view frustum.
 ---@return {x: number, y: number}|nil
 local function worldToScreen(worldPos)
@@ -307,7 +307,7 @@ local function worldToScreen(worldPos)
 	local width, height = tes3.getViewportSize()
 	return {
 		x = sp.x / width + 0.5,
-		y = 0.5 - sp.y / height, -- flip: niCamera Y up → screen Y down
+		y = 0.5 - sp.y / height, -- flip: niCamera Y up -> screen Y down
 	}
 end
 
@@ -531,7 +531,8 @@ local function onSimulate(e)
 		-- Make sure things have markers
 		if config.markerEnabled then
 			if not markerData then
-				if suspicionValue > 0 then
+				-- Attach only while sneaking; otherwise it culls and rebuilds every frame (see shouldShow).
+				if suspicionValue > 0 and mobilePlayer.isSneaking then
 					local marker = attachMarker(ref)
 					if marker then
 						markerData = markerPool[ref]
@@ -613,7 +614,7 @@ local function onSimulate(e)
 
 		bar.fillbar.widget.current = math.floor(suspicionValue * 100)
 		log:trace("[bar widget] %s current=%d max=100 suspicionValue=%.3f", ref.id, bar.fillbar.widget.current, suspicionValue)
-		-- Green → yellow → red
+		-- Green -> yellow -> red
 		bar.fillbar.widget.fillColor = { math.min(suspicionValue * 2, 1), math.min((1 - suspicionValue) * 2, 1), 0 }
 
 		bar.menu.visible = true

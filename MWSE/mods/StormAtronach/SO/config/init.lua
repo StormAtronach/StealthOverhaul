@@ -14,7 +14,7 @@ local default = {
 	lenience = 1.1,
 	-- AI update time
 	aiUpdateTime = 1,
-	-- Cumulative suspicion system (progress is 0.0–1.0)
+	-- Cumulative suspicion system (progress is 0.0-1.0)
 	-- Detection model
 	baseRange = 1320, -- max detection range at sneak=0 (game units; 1320 = 60 ft)
 	sneakPow = 1.2, -- power curve for sneak scaling (>1 = diminishing returns at high sneak)
@@ -22,17 +22,17 @@ local default = {
 	distPow = 2.0, -- distance falloff exponent (2 = squared, sharper at close range)
 	detCap = 1.0, -- max detection rate per second (prevents instant-fill)
 	detFloor = 0.03, -- min detection rate within range (prevents true invisibility)
-	fillTime = 1.0, -- seconds at rate=1.0 to fill bar from 0→100%
+	fillTime = 1.0, -- seconds at rate=1.0 to fill bar from 0->100%
 	hidingBonus = 0.1, -- Multiplier to see how strong the effect of hiding is (standing still, being outside of light, and being behind enemies). 
 	combatHidingTimer = 0, -- How long time in seconds that enemies are guaranteed to follow the player before the player can hide again after starting combat.
 	startStealthSuspicionMultiplier = 1, -- A multiplier to tweak how much or how little enemies detect the player when they start sneaking
 	combatDetectionMultiplier = 1, -- When player fights anything, other actors have their suspicion rate set to detCap * this multiplier. The idea is that hiding while fighting is not possible, but the exact amount can be tweaked here.
 	-- Light mechanic
 	lightMechanicEnabled = true, -- increase detection rate when player is inside a light source's radius
-	lightRateMult = 1.5, -- detection rate multiplier when player is in a light source (>1 = faster detection)
-	decayTime = 10, -- seconds to clear full suspicion (1→0) after decay delay
+	lightRateMult = 2.0, -- detection rate multiplier when player is in a light source (>1 = faster detection)
+	decayTime = 10, -- seconds to clear full suspicion (1->0) after decay delay
 	suspicionDecayDelay = 3, -- seconds before decay begins after last increase
-	stealSuspicionBonus = 50, -- bonus added on undetected theft (0–100 maps to 0.0–1.0 of progress)
+	stealSuspicionBonus = 50, -- bonus added on undetected theft (0-100 maps to 0.0-1.0 of progress)
 	-- Stealth bar / marker display
 	crosshairColorEnabled = true,
 	keepVanillaCrosshair = false,
