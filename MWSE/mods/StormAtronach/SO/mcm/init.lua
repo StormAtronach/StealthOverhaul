@@ -591,6 +591,50 @@ local function registerModConfig()
 		variable = mwse.mcm.createTableVariable({ id = "marksmanThrown", table = mult }),
 	})
 
+	-- Experience tweak page
+	local experiencePage = template:createSideBarPage({ label = "Experience", showReset = true }) --[[@as mwseMCMSideBarPage]]
+	createSidebar(experiencePage)
+
+	experiencePage:createSlider({
+		label = "XP multiplier - Avoid detection",
+		description = "Every second while you are not hidden, but not yet seen, you will gain a small amount of XP. That amount is multiplied by this value.",
+		step = 0.1,
+		decimalPlaces = 1,
+		min = 0,
+		max = 5,
+		configKey = "detectionExpMultiplier"
+	})
+
+	experiencePage:createSlider({
+		label = "XP multiplier - Pickpocket",
+		description = "Every time you pick a pocket, you will gain some XP. That amount is multiplied by this value. Note: Using the recommended mod Pickpocket by Mort will make this do nothing, and exp will be handled through that instead.",
+		step = 0.1,
+		decimalPlaces = 1,
+		min = 0,
+		max = 5,
+		configKey = "pickPocketExpMultiplier"
+	})
+
+	experiencePage:createSlider({
+		label = "XP multiplier - Sneak strike",
+		description = "Every time you perform a Sneak Strike, you will gain some XP. That amount is multiplied by this value.",
+		step = 0.1,
+		decimalPlaces = 1,
+		min = 0,
+		max = 5,
+		configKey = "sneakStrikeExpMultiplier"
+	})
+
+	experiencePage:createSlider({
+		label = "XP multiplier - Interop",
+		description = "Every time you gain experience from another mod that has interop with Stealth Overhaul (like Sneaky Snatcher), that amount is multiplied by this value.",
+		step = 0.1,
+		decimalPlaces = 1,
+		min = 0,
+		max = 5,
+		configKey = "interopExpMultiplier"
+	})
+
 	-- Stolen items page
 	local stolen = template:createSideBarPage({ label = "Stolen Items", showReset = true }) --[[@as mwseMCMSideBarPage]]
 	createSidebar(stolen)

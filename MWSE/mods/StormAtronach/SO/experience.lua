@@ -2,8 +2,7 @@ local experience = {}
 local allowLeveling = false
 local config = require("StormAtronach.SO.config")
 
-local mortsPickpocketInstalled = tes3.isLuaModActive("Pickpocket")
-local sneakySnatcherInstalled = tes3.isLuaModActive("")
+local hasPickpocket = tes3.isLuaModActive("Pickpocket")
 
 -- Make enum table and make sure it's not editable
 local function readOnly (t)
@@ -17,6 +16,7 @@ end
 
 ---@class ExperienceSource
 ---@field avoidDetection 0
+---@field stealItem 1
 ---@field pickPocket 1
 ---@field sneakStrike 2
 ---@field interop 3
@@ -24,15 +24,18 @@ end
 ---@type ExperienceSource
 experience.Source = readOnly({
     avoidDetection = 0,
-    pickPocket = 1,
-    sneakStrike = 2,
-    interop = 3
+    stealItem = 1,
+    pickPocket = 2,
+    sneakStrike = 3,
+    interop = 4
 })
 
+---@param e exerciseSkillEventData
 local function onExerciseSkill(e)
     
     if allowLeveling then
         allowLeveling = false
+        --tes3.messageBox(string.format("Trained %s with %0.2f progress.", tostring(e.skill), e.progress))
         return
     end
     e.block = true
@@ -45,6 +48,8 @@ function experience.levelSneak(source, amount)
     local exp = 0
     if source == experience.Source.avoidDetection then
         exp = 0.03 * config.detectionExpMultiplier
+    elseif source == experience.Source.stealItem then
+        exp = 1 * config.stealItemExpMultiplier
     elseif source == experience.Source.pickPocket then
         exp = 2 * config.pickPocketExpMultiplier
     elseif source == experience.Source.sneakStrike then
@@ -52,7 +57,7 @@ function experience.levelSneak(source, amount)
     end
 
     if amount > 0 and source == experience.Source.interop then
-        exp = amount
+        exp = amount * config.interopExpMultiplier
     end
 
     allowLeveling = true
@@ -61,7 +66,7 @@ end
 
 --- @param e pickpocketEventData
 local function pickpocketCallback(e)
-    if not mortsPickpocketInstalled then
+    if not hasPickpocket then
         experience.levelSneak(experience.Source.pickPocket, 0)
     end
 end

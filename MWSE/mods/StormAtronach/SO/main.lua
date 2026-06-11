@@ -144,7 +144,9 @@ event.register("SA_SO_detected", detected)
 local function itemTileUpdatedCallback(e)
 	if not config.modEnabled then return end
 	-- Don't do stuff in the menu, only when picking up things in the world
+	
 	if tes3ui.menuMode() then return end
+
 	util.updateCurrentCrime()
 end
 event.register(tes3.event.itemTileUpdated, itemTileUpdatedCallback)

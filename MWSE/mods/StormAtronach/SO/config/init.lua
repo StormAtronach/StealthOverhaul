@@ -72,6 +72,7 @@ local default = {
 	stealItemExpMultiplier = 1,
 	pickPocketExpMultiplier = 1,
 	sneakStrikeExpMultiplier = 1,
+	interopExpMultiplier = 1,
 	-- Debug
 	debugLines = false,
 }

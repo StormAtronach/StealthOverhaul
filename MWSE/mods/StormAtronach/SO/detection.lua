@@ -434,7 +434,7 @@ local function onSimulate(e)
 		local isStale = (lastUpdate == nil) or (onSimulateTime - lastUpdate) >= staleThreshold
 		local active = not isStale
 
-		if active and not hostile and state.rate > config.detFloor and current < 1 and tes3.mobilePlayer.isSneaking then
+		if active and not hostile and current < 1 and tes3.mobilePlayer.isSneaking then
     		gainExp = true
 		end
 
