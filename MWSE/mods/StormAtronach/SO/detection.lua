@@ -305,7 +305,8 @@ event.register(tes3.event.detectSneak, detectSneakCallback, { priority = 1000 })
 
 
 local detectionExperienceTimer = 0
-local gainExp = false
+local gainExp = false -- This checks if any NPC is in a state to give the player XP
+local blockExp = false -- Thir checks if any NPC should stop player from getting XP (as in have detected them)
 
 --- Simulate runs every frame. This is where time-based accumulation/decay happens,
 --- matching the OpenMW approach: progress changes at velocity * dt, independent of
@@ -378,6 +379,7 @@ local function onSimulate(e)
 	local invisible = tes3.mobilePlayer.invisibility > 0 or chameleon >= 100
 
 	gainExp = false
+	blockExp = false
 	
 
 	for ref in pairs(toProcess) do
@@ -436,6 +438,10 @@ local function onSimulate(e)
 
 		if active and not hostile and current < 1 and tes3.mobilePlayer.isSneaking then
     		gainExp = true
+		end 
+
+		if hostile or current >= 1 then
+			blockExp = true
 		end
 
 		-- DEBUG: per-actor diagnostic message box (enable by raising logLevel to debug/trace)
@@ -512,7 +518,7 @@ local function onSimulate(e)
 		::continue::
 	end
 
-	if gainExp then
+	if gainExp and not blockExp then
 		detectionExperienceTimer = detectionExperienceTimer + dt
 		if detectionExperienceTimer >= 1 then
 			detectionExperienceTimer = 0
