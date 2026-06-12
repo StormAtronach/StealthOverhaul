@@ -3,6 +3,8 @@ local fileName = "Stealth_Overhaul"
 ---@class template.defaultConfig
 local default = {
 	modEnabled = true,
+	setAlarmToThreshold = true,
+	alarmThreshold = 50,
 	stolenItemsMechanic_Guard = false,
 	stolenItemsMechanic_Owner = false,
 	logLevel = mwse.logLevel.error,

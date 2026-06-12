@@ -93,6 +93,21 @@ local function registerModConfig()
 		configKey = "aiUpdateTime",
 	})
 
+	page:createOnOffButton({
+		label = "Set alarm to threshold when NPCs load in",
+		description = "If this is on, the NPCs AI Alarm value will be set to the threshold value, to make sure that people actually care about you stealing stuff.",
+		configKey = "setAlarmToThreshold"
+	})
+
+	page:createSlider({
+		label = "Alarm threshold",
+		description = "If the above option is toggled on, it will set NPC's alarm value to this if they have a lower value when they are loaded.",
+		min = 0,
+		max = 100,
+		step = 1,
+		configKey = "alarmThreshold",
+	})
+
 	-- Detection page
 	local detection = template:createSideBarPage({ label = "Detection", showReset = true }) --[[@as mwseMCMSideBarPage]]
 	createSidebar(detection)

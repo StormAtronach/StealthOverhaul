@@ -29,6 +29,9 @@ local function setAIIntervalTime(e)
 	if e.mobile and e.mobile.scanInterval then
     	e.mobile.scanInterval = config.aiUpdateTime
 	end
+	if config.setAlarmToThreshold and e.mobile.alarm < config.alarmThreshold then
+		e.mobile.alarm = config.alarmThreshold
+	end
 end
 event.register(tes3.event.mobileActivated,  setAIIntervalTime)
 

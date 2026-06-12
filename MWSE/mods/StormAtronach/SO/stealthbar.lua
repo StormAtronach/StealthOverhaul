@@ -8,6 +8,8 @@ if not essentialIndicatorInstalled then
 	ei = nil
 end
 
+-- Interop with modern lockpicking
+local modernLockpickingActive = false
 
 local log = mwse.Logger.new({ moduleName = "stealthbar", level = config.logLevel })
 
@@ -119,6 +121,7 @@ local function createCrosshair()
 	log:debug("[crosshair] UI overlay created with %d frames", MARKER_FRAME_COUNT)
 end
 
+---@param e uiActivatedEventData
 local function onMenuMultiActivated(e)
 	if not e.newlyCreated then
 		return
@@ -487,6 +490,7 @@ local function onSimulate(e)
 	
 	-- Crosshair: Fade in and out logic
 	local crosshairTargetFade = config.crosshairColorEnabled and tes3.mobilePlayer.isSneaking and 1 or 0
+
 	if crosshairParent then
 		crosshairCurrentFade = lerp(crosshairCurrentFade, crosshairTargetFade, 1 - math.exp(-dt * 10))
 		if crosshairActiveFrame and crosshairFrames[crosshairActiveFrame] then
@@ -649,3 +653,17 @@ local function onSimulate(e)
 	end
 end
 event.register(tes3.event.simulate, onSimulate, { priority = -1 })
+
+local function onModernLockpickingStart() 
+	if crosshairParent then
+		crosshairParent.visible = false
+	end
+end
+event.register("tauer.modern-lockpicking.lockpickingStart", onModernLockpickingStart)
+
+local function onModernLockpickingEnded() 
+	if crosshairParent then
+		crosshairParent.visible = true
+	end
+end
+event.register("tauer.modern-lockpicking.lockpickingEnded", onModernLockpickingEnded)
