@@ -635,6 +635,22 @@ local function registerModConfig()
 		configKey = "interopExpMultiplier"
 	})
 
+	experiencePage:createOnOffButton({
+		label = "Owned containers give XP",
+		description = "If you activate an owned container when this mod is on (during the right sneaky conditions) you get XP as if stealing an item. Only once per cell visit. Might be exploitable, and can be turned off here.",
+		configKey = "containersGiveXP"
+	})
+	
+	experiencePage:createSlider({
+		label = "Bonus time added to XP gain steal window",
+		description = "You only get XP from stealing stuff if someone saw you (if they are considered active by the mod). Normally, an NPC is active for twice the AI tick time + 0.5 seconds. This might be a bit short time for some if you play with the recommended 1 second AI tick time. This value adds more time (in seconds) to the allowed window after the last AI tick where someone sensed you.\n\nRecommended option is to set this to 0 or 1.",
+		step = 0.1,
+		decimalPlaces = 1,
+		min = 0,
+		max = 2,
+		configKey = "bonusStealWindow"
+	})
+
 	-- Stolen items page
 	local stolen = template:createSideBarPage({ label = "Stolen Items", showReset = true }) --[[@as mwseMCMSideBarPage]]
 	createSidebar(stolen)

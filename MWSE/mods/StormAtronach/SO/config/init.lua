@@ -73,6 +73,8 @@ local default = {
 	pickPocketExpMultiplier = 1,
 	sneakStrikeExpMultiplier = 1,
 	interopExpMultiplier = 1,
+	containersGiveXP = true,
+	bonusStealWindow = 0.5, -- This is added to the window after a check to see if the player gets experience.
 	-- Debug
 	debugLines = false,
 }

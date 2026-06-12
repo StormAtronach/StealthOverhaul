@@ -5,7 +5,7 @@ local log = mwse.Logger.new({ moduleName = "detection", level = config.logLevel 
 
 local detection = {}
 
-local onSimulateTime = 0
+ detection.onSimulateTime = 0
 
 -- Per-actor suspicion progress: 0.0 (unseen) -> 1.0 (fully detected).
 -- Read by stealthbar.lua.
@@ -13,7 +13,7 @@ detection.suspicion = {}
 
 -- Per-actor vanilla detection state, updated each detectSneak tick.
 -- [ref] = { detecting = bool, lastUpdate = os.clock() }
-local detectionState = {}
+detection.detectionState = {}
 
 -- Per-actor decay delay timers: while a timer is alive, decay is suppressed.
 local decayTimers = {}
@@ -121,7 +121,7 @@ local function onLoad()
 		lightCheckTimer = nil
 	end
 	detection.suspicion = {}
-	detectionState = {}
+	detection.detectionState = {}
 	decayTimers = {}
 	lightSources = {}
 	playerInLight = false
@@ -240,7 +240,7 @@ local function detectSneakCallback(e)
 	local detector = e.detector --[[@as tes3mobileNPC|tes3mobileCreature]]
 	local ref = detector.reference
 
-	local state = detectionState[ref] or {}
+	local state = detection.detectionState[ref] or {}
 	state.inCombat = actorFightsPlayer(e.detector)
 
 	if not tes3.mobilePlayer.isSneaking and tes3.mobilePlayer.chameleon <= 0 and tes3.mobilePlayer.invisibility <= 0 then
@@ -281,10 +281,10 @@ local function detectSneakCallback(e)
 	-- Allow the actor suspicion to go stale if suspicion is zero
 	local shouldWeLetActorGoStale = math.clamp(rate - hidingTerm, 0, config.detCap)
 	if shouldWeLetActorGoStale > 0 then
-		state.lastUpdate = onSimulateTime
+		state.lastUpdate = detection.onSimulateTime
 	end
 
-	detectionState[ref] = state
+	detection.detectionState[ref] = state
 
 	log:trace("[detectSneak] %s distance=%.0f rate=%.4f/s", ref.id, distance, rate)
 
@@ -314,7 +314,7 @@ local gainExp = false
 local function onSimulate(e)
 
 	-- Keep our own timer, to make sure it only adds when we simulate
-	onSimulateTime = onSimulateTime + e.delta
+	detection.onSimulateTime = detection.onSimulateTime + e.delta
 
 	if not config.modEnabled then
 		return
@@ -336,10 +336,10 @@ local function onSimulate(e)
 					detection.suspicion[ref] = detection.suspicion[ref] or 0
 					detection.suspicion[ref] = math.min(1, math.max(detection.suspicion[ref], angleFactor + (0.5 * (1-(sneakSkill/100)))) * config.startStealthSuspicionMultiplier)
 
-					local state = detectionState[ref] or {}
-					state.lastUpdate = onSimulateTime
+					local state = detection.detectionState[ref] or {}
+					state.lastUpdate = detection.onSimulateTime
 					state.rate = state.rate or config.detFloor
-					detectionState[ref] = state
+					detection.detectionState[ref] = state
 
 					local playerSeen = tes3.testLineOfSight({ reference1 = ref, reference2 = tes3.player })
 					if playerSeen then
@@ -353,14 +353,14 @@ local function onSimulate(e)
 	wasSneaking = isSneaking
 
 	-- Nothing to process if no actor is being tracked
-	if not next(detection.suspicion) and not next(detectionState) then
+	if not next(detection.suspicion) and not next(detection.detectionState) then
 		return
 	end
 
 	local dt = e.delta
 	-- Seconds to fall to 0 from 1.0 (when not detected, after delay)
 	local dv = 1.0 / config.decayTime
-	-- A detectionState entry is considered stale if no detectSneak tick arrived
+	-- A detection.detectionState entry is considered stale if no detectSneak tick arrived
 	-- within this window (actor likely left range)
 	local staleThreshold = config.aiUpdateTime * 2 + 0.5
 
@@ -369,7 +369,7 @@ local function onSimulate(e)
 	for ref in pairs(detection.suspicion) do
 		toProcess[ref] = true
 	end
-	for ref in pairs(detectionState) do
+	for ref in pairs(detection.detectionState) do
 		toProcess[ref] = true
 	end
 
@@ -384,7 +384,7 @@ local function onSimulate(e)
 		
 		if not ref:isValid() then
 			detection.suspicion[ref] = nil
-			detectionState[ref] = nil
+			detection.detectionState[ref] = nil
 			if decayTimers[ref] then
 				decayTimers[ref]:cancel()
 				
@@ -394,7 +394,7 @@ local function onSimulate(e)
 		end
 		
 		local current = detection.suspicion[ref] or 0
-		local state = detectionState[ref] or {}
+		local state = detection.detectionState[ref] or {}
 		local mob = ref.mobile --[[@as tes3mobileActor]]
 
 		if mob then
@@ -403,17 +403,17 @@ local function onSimulate(e)
 		local hostile = state.inCombat or false
 
 		if hostile and not state.combatStarted then
-			state.combatStarted = onSimulateTime
+			state.combatStarted = detection.onSimulateTime
 		end
 
 		local enemyInPursuitWindow = false
 		if hostile and state.combatStarted then
-			enemyInPursuitWindow = (onSimulateTime - state.combatStarted) <= config.combatHidingTimer
+			enemyInPursuitWindow = (detection.onSimulateTime - state.combatStarted) <= config.combatHidingTimer
 		end
 
 		if enemyInPursuitWindow then
 			current = 1
-			state.lastUpdate = onSimulateTime
+			state.lastUpdate = detection.onSimulateTime
 			restartDecayTimer(ref)
 		elseif hostile then
 			local distance = ref.position:distance(tes3.player.position)
@@ -421,7 +421,7 @@ local function onSimulate(e)
 				local playerSeen = tes3.testLineOfSight({ reference1 = ref, reference2 = tes3.player })
 				if playerSeen then
 					if mob and mob.inCombat then
-						state.combatStarted = onSimulateTime
+						state.combatStarted = detection.onSimulateTime
 					end
 				end
 			end
@@ -431,7 +431,7 @@ local function onSimulate(e)
 
 		-- Never-stamped (nil) actors count as stale; explicit nil check avoids an early-load quirk.
 		local lastUpdate = state.lastUpdate
-		local isStale = (lastUpdate == nil) or (onSimulateTime - lastUpdate) >= staleThreshold
+		local isStale = (lastUpdate == nil) or (detection.onSimulateTime - lastUpdate) >= staleThreshold
 		local active = not isStale
 
 		if active and not hostile and current < 1 and tes3.mobilePlayer.isSneaking then
@@ -439,19 +439,19 @@ local function onSimulate(e)
 		end
 
 		-- DEBUG: per-actor diagnostic message box (enable by raising logLevel to debug/trace)
-		if log.level >= mwse.logLevel.debug then
-			tes3.messageBox(
-		 		"Ref: %s | current=%.3f | active=%s | state.inCombat=%s |  enemyInPursuitWindow=%s | rate=%.4f | timestamp=%.3f | player.InCombat=%s",
-		 		ref.id,
-		 		current,
-		 		tostring(active),
-		 		tostring(state.inCombat),
-		 		tostring(enemyInPursuitWindow),
-		 		state.rate or -1,
-		 		onSimulateTime,
-		 		tostring(tes3.mobilePlayer.inCombat)
-		 	)
-		 end
+		--if log.level >= mwse.logLevel.debug then
+		--	tes3.messageBox(
+		-- 		"Ref: %s | current=%.3f | active=%s | state.inCombat=%s |  enemyInPursuitWindow=%s | rate=%.4f | timestamp=%.3f | player.InCombat=%s",
+		-- 		ref.id,
+		-- 		current,
+		-- 		tostring(active),
+		-- 		tostring(state.inCombat),
+		-- 		tostring(enemyInPursuitWindow),
+		-- 		state.rate or -1,
+		-- 		detection.onSimulateTime,
+		-- 		tostring(tes3.mobilePlayer.inCombat)
+		-- 	)
+		-- end
 		
 		if mob and active and not enemyInPursuitWindow then
 			
@@ -501,7 +501,7 @@ local function onSimulate(e)
 				tes3.setAIWander({ reference = ref, range = wanderRange, reset = true, idles = generateIdles() })
 			end
 			detection.suspicion[ref] = nil
-			detectionState[ref] = nil
+			detection.detectionState[ref] = nil
 			if decayTimers[ref] then
 				decayTimers[ref]:cancel()
 				decayTimers[ref] = nil
@@ -528,7 +528,7 @@ local function onDeath(e)
 		 return
 	end
 	detection.suspicion[ref] = nil
-	detectionState[ref] = nil
+	detection.detectionState[ref] = nil
 	if decayTimers[ref] then
 		decayTimers[ref]:cancel()
 		decayTimers[ref] = nil
@@ -549,11 +549,11 @@ local function onCombatStarted(e)
 	end
 
 	detection.suspicion[ref] = 1
-	local state = detectionState[ref] or {}
+	local state = detection.detectionState[ref] or {}
 	state.inCombat = true
-	state.combatStarted = onSimulateTime
-	state.lastUpdate = onSimulateTime
-    detectionState[ref] = state
+	state.combatStarted = detection.onSimulateTime
+	state.lastUpdate = detection.onSimulateTime
+    detection.detectionState[ref] = state
 end
 event.register(tes3.event.combatStarted, onCombatStarted)
 
@@ -583,7 +583,7 @@ end
 ---@param ref tes3reference
 function detection.clearSuspicion(ref)
 	detection.suspicion[ref] = nil
-	detectionState[ref] = nil
+	detection.detectionState[ref] = nil
 	if decayTimers[ref] then
 		decayTimers[ref]:cancel()
 		decayTimers[ref] = nil

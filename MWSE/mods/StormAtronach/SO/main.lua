@@ -4,6 +4,7 @@ local util = require("StormAtronach.SO.util")
 require("StormAtronach.SO.detection")
 require("StormAtronach.SO.sneakstrike")
 require("StormAtronach.SO.stealthbar")
+require("StormAtronach.SO.stealingcheck")
 
 local log = mwse.Logger.new({ moduleName = "main", level = config.logLevel })
 
@@ -26,10 +27,11 @@ local npcCooldown = {}
 ---@param e mobileActivatedEventData
 local function setAIIntervalTime(e)
 	if e.mobile and e.mobile.scanInterval then
-    e.mobile.scanInterval = config.aiUpdateTime
+    	e.mobile.scanInterval = config.aiUpdateTime
 	end
 end
 event.register(tes3.event.mobileActivated,  setAIIntervalTime)
+
 
 ---@param e loadEventData
 local function onLoad(e)
@@ -144,9 +146,7 @@ event.register("SA_SO_detected", detected)
 local function itemTileUpdatedCallback(e)
 	if not config.modEnabled then return end
 	-- Don't do stuff in the menu, only when picking up things in the world
-	
 	if tes3ui.menuMode() then return end
-
 	util.updateCurrentCrime()
 end
 event.register(tes3.event.itemTileUpdated, itemTileUpdatedCallback)
@@ -158,3 +158,5 @@ local function menuExitCallback(e)
 	util.updateCurrentCrime()
 end
 event.register(tes3.event.menuExit, menuExitCallback)
+
+

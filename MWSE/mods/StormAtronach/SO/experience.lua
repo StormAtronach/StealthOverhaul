@@ -35,7 +35,7 @@ local function onExerciseSkill(e)
     
     if allowLeveling then
         allowLeveling = false
-        --tes3.messageBox(string.format("Trained %s with %0.2f progress.", tostring(e.skill), e.progress))
+        tes3.messageBox(string.format("Gained %0.3f sneak XP", e.progress))
         return
     end
     e.block = true
