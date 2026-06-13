@@ -46,7 +46,7 @@ event.register(tes3.event.exerciseSkill, onExerciseSkill, { filter = tes3.skill[
 function experience.levelSneak(source, amount)
     local exp = 0
     if source == experience.Source.avoidDetection then
-        exp = 0.03 * config.detectionExpMultiplier
+        exp = 0.04 * config.detectionExpMultiplier
     elseif source == experience.Source.stealItem then
         exp = 1 * config.stealItemExpMultiplier
     elseif source == experience.Source.pickPocket then
