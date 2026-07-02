@@ -1,22 +1,22 @@
 local config = require("StormAtronach.SO.config")
+local experience = require("StormAtronach.SO.experience")
 
 local log = mwse.Logger.new({ moduleName = "detection", level = config.logLevel })
 
 local detection = {}
 
--- Per-actor suspicion progress: 0.0 (unseen) → 1.0 (fully detected).
+ detection.onSimulateTime = 0
+
+-- Per-actor suspicion progress: 0.0 (unseen) -> 1.0 (fully detected).
 -- Read by stealthbar.lua.
 detection.suspicion = {}
 
 -- Per-actor vanilla detection state, updated each detectSneak tick.
--- [actorId] = { detecting = bool, lastUpdate = os.clock() }
-local detectionState = {}
+-- [ref] = { detecting = bool, lastUpdate = os.clock() }
+detection.detectionState = {}
 
 -- Per-actor decay delay timers: while a timer is alive, decay is suppressed.
 local decayTimers = {}
-
--- Throttle for sneak chance debug logging: [actorId] = last log time (os.clock())
-local sneakChanceLogTime = {}
 
 -- Light mechanic: interior light sources and whether the player is currently inside one.
 local lightSources = {} -- { ref = tes3reference, radius = number }
@@ -27,17 +27,19 @@ local lightCheckTimer = nil
 local wasSneaking = false
 
 --- Restart the per-actor decay delay timer.
----@param actorId string
-local function restartDecayTimer(actorId)
-	if decayTimers[actorId] then
-		decayTimers[actorId]:cancel()
+---@param ref tes3reference
+local function restartDecayTimer(ref)
+	if not ref:isValid() then return end
+
+	if decayTimers[ref] then
+		decayTimers[ref]:cancel()
 	end
-	decayTimers[actorId] = timer.start({
+	decayTimers[ref] = timer.start({
 		type = timer.simulate,
 		duration = config.suspicionDecayDelay,
 		iterations = 1,
 		callback = function()
-			decayTimers[actorId] = nil
+			decayTimers[ref] = nil
 		end,
 	})
 end
@@ -66,7 +68,8 @@ local function checkPlayerLight()
 	local playerPos = tes3.player.position
 	playerInLight = false
 	for _, ls in ipairs(lightSources) do
-		if not ls.ref.disabled then
+		local ref = ls.ref
+		if ref and ref:isValid() and not ref.disabled then
 			local dist = playerPos:distance(ls.ref.position)
 			if dist <= ls.radius then
 				playerInLight = true
@@ -77,17 +80,34 @@ local function checkPlayerLight()
 	end
 end
 
----@param e cellChangedEventData
-local function onCellChanged(e)
+local function recalculateLights(cell)
 	playerInLight = false
 	if lightCheckTimer then
 		lightCheckTimer:cancel()
 		lightCheckTimer = nil
 	end
-	scanCellLights(e.cell)
+	scanCellLights(cell)
 	if #lightSources > 0 then
 		lightCheckTimer = timer.start({ type = timer.simulate, duration = 0.5, iterations = -1, callback = checkPlayerLight })
 	end
+end
+
+
+local function generateIdles()
+	local idles = {}
+	for i = 1, 4 do
+		idles[i] = math.random(0, 60)
+	end
+	idles[5] = 0
+	for i = 6, 8 do
+		idles[i] = math.random(0, 60)
+	end
+	return idles
+end
+
+---@param e cellChangedEventData
+local function onCellChanged(e)
+	recalculateLights(e.cell)
 end
 event.register(tes3.event.cellChanged, onCellChanged)
 
@@ -95,29 +115,34 @@ local function onLoad()
 	for _, t in pairs(decayTimers) do
 		t:cancel()
 	end
+
 	if lightCheckTimer then
 		lightCheckTimer:cancel()
 		lightCheckTimer = nil
 	end
 	detection.suspicion = {}
-	detectionState = {}
+	detection.detectionState = {}
 	decayTimers = {}
-	sneakChanceLogTime = {}
 	lightSources = {}
 	playerInLight = false
 	wasSneaking = false
+	recalculateLights(tes3.player.cell)
+
 	log:debug("Detection system reset on load")
 end
 event.register(tes3.event.loaded, onLoad)
+
+local function getAngleFactor(angle)
+	return 0.25 + 0.75 * (1 + math.cos(math.rad(angle))) * 0.5
+end
 
 --- Compute the detection rate per second for a given detector and distance.
 --- Rate is in bar-fills per second; multiply by dt/fillTime to get per-frame progress.
 --- Based on the design model in morrowind_sneak_detection_model.md.
 ---@param detector tes3mobileNPC|tes3mobileCreature
 ---@param distance number -- game units
----@param actorId string
----@return number -- rate per second, clamped to [0, detCap] (chameleon can reduce below detFloor)
-local function computeDetectionRate(detector, distance, actorId)
+---@return number -- rate per second, clamped to [0, detCap]
+local function computeDetectionRate(detector, distance)
 	local player = tes3.mobilePlayer
 
 	-- Effective detection range shrinks with sneak skill.
@@ -132,35 +157,25 @@ local function computeDetectionRate(detector, distance, actorId)
 	local distanceFactor = math.max(0, 1 - distance / effectiveRange) ^ config.distPow
 
 	-- Angle factor: continuous from 0.25 (directly behind NPC) to 1.0 (face-on)
-	-- getViewToActor: 0 = directly in front, ±180 = directly behind
+	-- getViewToActor: 0 = directly in front, +/-180 = directly behind
 	local angle = detector:getViewToActor(player)
-	local angleFactor = 0.25 + 0.75 * (1 + math.cos(math.rad(angle))) / 2
+
+	local angleFactor = getAngleFactor(angle)
 
 	local rawRate = distanceFactor * angleFactor
 
+	local standingStill = player.velocity:length() < 5
 	-- Modifiers
-	local chameleon = player.chameleon or 0
-	local standStillMult = player.velocity:length() < 5 and 0.8 or 1.0
+	local standStillMult = standingStill and 0.8 or 1.0
 	local lightFactor = (config.lightMechanicEnabled and playerInLight) and config.lightRateMult or 1.0
-	local shoeFactor = 1 + player:getBootsWeight() / 50
+	local bootsWeight = player:getBootsWeight() or 0
+	local shoeFactor = 1 + bootsWeight / 50
 
 	local modifiedRate = rawRate * standStillMult * lightFactor * shoeFactor
 
 	-- Add the chameleon factor and clamp
-	local rate = math.clamp(modifiedRate * (1 - chameleon / 100), config.detFloor, config.detCap)
+	local rate = math.clamp(modifiedRate, config.detFloor, config.detCap)
 
-	if tes3.mobilePlayer.invisibility > 0 then rate = config.detFloor end
-
-	local now = os.clock()
-	if (now - (sneakChanceLogTime[actorId] or 0)) >= 0.25 then
-		sneakChanceLogTime[actorId] = now
-		log:trace("[rate:%s] dist=%.0f effRange=%.0f distFactor=%.3f angle=%.1f angleFactor=%.2f rawRate=%.3f", actorId,
-		          distance, effectiveRange, distanceFactor, angle, angleFactor, rawRate)
-		log:trace(
-		"[rate:%s] standStill=%.2f light=%.2f shoe=%.2f chameleon=%.0f => rate=%.4f/s (fillTime=%.1fs) | sneakXP: %.2f",
-		actorId, standStillMult, lightFactor, shoeFactor, chameleon, rate, config.fillTime,
-		tes3.mobilePlayer.skillProgress[tes3.skill.sneak])
-	end
 	return rate
 end
 
@@ -201,6 +216,15 @@ local function onSkillRaised(e)
 end
 event.register(tes3.event.skillRaised, onSkillRaised)
 
+local function actorFightsPlayer(actorMobile)
+	for _, actor in ipairs(actorMobile.hostileActors) do
+		if actor.reference == tes3.player then
+			return true
+		end
+	end
+	return false
+end
+
 --- detectSneak fires per actor per AI tick.
 --- We only record vanilla's detection state here; accumulation happens in simulate.
 ---@param e detectSneakEventData
@@ -208,14 +232,18 @@ local function detectSneakCallback(e)
 	if not config.modEnabled then
 		return
 	end
+
 	if e.target ~= tes3.mobilePlayer then
 		return
 	end
-	local mp = tes3.mobilePlayer
-	if not mp.isSneaking and mp.chameleon <= 0 and mp.invisibility <= 0 then
-		return
-	end
-	if e.detector.inCombat then
+
+	local detector = e.detector --[[@as tes3mobileNPC|tes3mobileCreature]]
+	local ref = detector.reference
+
+	local state = detection.detectionState[ref] or {}
+	state.inCombat = actorFightsPlayer(e.detector)
+
+	if not tes3.mobilePlayer.isSneaking and tes3.mobilePlayer.chameleon <= 0 and tes3.mobilePlayer.invisibility <= 0 then
 		return
 	end
 
@@ -224,41 +252,76 @@ local function detectSneakCallback(e)
 		return
 	end
 
-	local detector = e.detector --[[@as tes3mobileNPC|tes3mobileCreature]]
-	local ref = detector.reference
-	local actorId = ref.id
-
+	
 	local previouslyDetected = e.detector.isPlayerDetected
 
 	-- Compute detection rate and store for the simulate loop
-	local distance = detector.reference.position:distance(tes3.player.position)
-	local rate = computeDetectionRate(detector, distance, actorId)
-	detectionState[actorId] = { rate = rate, lastUpdate = os.clock() }
-	log:trace("[detectSneak] %s distance=%.0f rate=%.4f/s", actorId, distance, rate)
+	local distance = ref.position:distance(tes3.player.position)
+	local rate = computeDetectionRate(detector, distance)
+	
+
+	if tes3.mobilePlayer.inCombat then
+		local playerSeen = tes3.testLineOfSight({ reference1 = ref, reference2 = tes3.player })
+		if playerSeen then
+			rate = config.detCap * config.combatDetectionMultiplier
+		end
+	end
+
+	state.rate = rate
+
+	-- Check if player is hiding -> Stands still, is behind enemy, and not in a light
+	local angle = detector:getViewToActor(tes3.mobilePlayer)
+	local angleFactor = getAngleFactor(angle)
+	local hidingTerm = (1 - angleFactor) * config.hidingBonus
+
+	-- Apply chameleon for detection check (we have already saved down the state, so this will not be doubly applied in onSimulate later)
+	local chameleon = tes3.mobilePlayer.chameleon or 0
+	rate = rate * (1 - (chameleon / 100))
+
+	-- Allow the actor suspicion to go stale if suspicion is zero
+	local shouldWeLetActorGoStale = math.clamp(rate - hidingTerm, 0, config.detCap)
+	if shouldWeLetActorGoStale > 0 then
+		state.lastUpdate = detection.onSimulateTime
+	end
+
+	detection.detectionState[ref] = state
+
+	log:trace("[detectSneak] %s distance=%.0f rate=%.4f/s", ref.id, distance, rate)
 
 	-- Override vanilla with our accumulator-based result
-	local nowDetected = (detection.suspicion[actorId] or 0) >= 1.0
-	e.isDetected = nowDetected
-	detector.isPlayerDetected = nowDetected
-	detector.isPlayerHidden = not nowDetected
+	local detectedState = (detection.suspicion[ref] or 0) >= 1.0
 
-	if nowDetected and not previouslyDetected then
-		log:debug("Detected by %s! Progress reached 1.0.", actorId)
+	e.isDetected = detectedState
+	detector.isPlayerDetected = detectedState
+	detector.isPlayerHidden = not detectedState
+
+	if detectedState and not previouslyDetected then
+		log:debug("Detected by %s! Progress reached 1.0.", ref)
 		event.trigger("SA_SO_detected", e)
 	end
 end
 event.register(tes3.event.detectSneak, detectSneakCallback, { priority = 1000 })
+
+
+
+local detectionExperienceTimer = 0
+local gainExp = false -- This checks if any NPC is in a state to give the player XP
+local blockExp = false -- Thir checks if any NPC should stop player from getting XP (as in have detected them)
 
 --- Simulate runs every frame. This is where time-based accumulation/decay happens,
 --- matching the OpenMW approach: progress changes at velocity * dt, independent of
 --- AI tick frequency.
 ---@param e simulateEventData
 local function onSimulate(e)
+
+	-- Keep our own timer, to make sure it only adds when we simulate
+	detection.onSimulateTime = detection.onSimulateTime + e.delta
+
 	if not config.modEnabled then
 		return
 	end
 
-	-- On sneak start: initialize already-detected nearby actors to full suspicion
+	-- On sneak start: initialize already-detected nearby actors to an initial suspicion based on their sneak skill and rotation from NPC
 	-- so the player can't escape detection by simply pressing sneak.
 	local isSneaking = tes3.mobilePlayer.isSneaking
 	if isSneaking and not wasSneaking then
@@ -266,11 +329,23 @@ local function onSimulate(e)
 		if nearby then
 			for _, mob in ipairs(nearby) do
 				---@cast mob tes3mobileActor
-				if mob ~= tes3.mobilePlayer and mob.isPlayerDetected then
-					local ref = mob.reference
-					if ref then
-						detection.suspicion[ref.id] = 1.0
-						log:debug("[sneak start] %s was already detected, suspicion set to 1.0", ref.id)
+				local ref = mob.reference
+				if ref and mob ~= tes3.mobilePlayer and tes3.testLineOfSight({ reference1 = ref, reference2 = tes3.player}) then
+					local angle = mob:getViewToActor(tes3.mobilePlayer)
+					local angleFactor = getAngleFactor(angle)
+					local sneakSkill = math.min(tes3.mobilePlayer.sneak.current, 100)
+					detection.suspicion[ref] = detection.suspicion[ref] or 0
+					detection.suspicion[ref] = math.min(1, math.max(detection.suspicion[ref], angleFactor + (0.5 * (1-(sneakSkill/100)))) * config.startStealthSuspicionMultiplier)
+
+					local state = detection.detectionState[ref] or {}
+					state.lastUpdate = detection.onSimulateTime
+					state.rate = state.rate or config.detFloor
+					detection.detectionState[ref] = state
+
+					local playerSeen = tes3.testLineOfSight({ reference1 = ref, reference2 = tes3.player })
+					if playerSeen then
+						local pm = tes3.worldController.mobManager.processManager
+						pm:detectSneak(mob, tes3.mobilePlayer, true)
 					end
 				end
 			end
@@ -279,87 +354,245 @@ local function onSimulate(e)
 	wasSneaking = isSneaking
 
 	-- Nothing to process if no actor is being tracked
-	if not next(detection.suspicion) and not next(detectionState) then
+	if not next(detection.suspicion) and not next(detection.detectionState) then
 		return
 	end
 
 	local dt = e.delta
 	-- Seconds to fall to 0 from 1.0 (when not detected, after delay)
 	local dv = 1.0 / config.decayTime
-	-- A detectionState entry is considered stale if no detectSneak tick arrived
+	-- A detection.detectionState entry is considered stale if no detectSneak tick arrived
 	-- within this window (actor likely left range)
 	local staleThreshold = config.aiUpdateTime * 2 + 0.5
 
 	-- Collect all actor IDs that need processing this frame
 	local toProcess = {}
-	for id in pairs(detection.suspicion) do
-		toProcess[id] = true
+	for ref in pairs(detection.suspicion) do
+		toProcess[ref] = true
 	end
-	for id in pairs(detectionState) do
-		toProcess[id] = true
+	for ref in pairs(detection.detectionState) do
+		toProcess[ref] = true
 	end
 
-	for actorId in pairs(toProcess) do
-		local current = detection.suspicion[actorId] or 0
-		local state = detectionState[actorId]
+	local standingStill = tes3.mobilePlayer.velocity:length() < 5
+	local chameleon = tes3.mobilePlayer.chameleon or 0
+	local invisible = tes3.mobilePlayer.invisibility > 0 or chameleon >= 100
 
-		-- Actor is active if a detectSneak tick arrived recently; stale = left range
-		local isStale = not state or (os.clock() - state.lastUpdate) >= staleThreshold
-		local active = not isStale
+	gainExp = false
+	blockExp = false
+	
 
-		if active then
-			local rate = state.rate or config.detFloor
-			local delta = rate * dt / config.fillTime
-			current = math.min(1.0, current + delta)
-			restartDecayTimer(actorId)
-			log:trace("Suspicion ↑ for %s: %.3f (+%.4f/frame) rate=%.4f/s", actorId, current, delta, rate)
-		elseif not decayTimers[actorId] then
-			current = math.max(0.0, current - dv * dt)
-			if current > 0 then
-				log:trace("Suspicion ↓ for %s: %.3f (-%.4f/frame)", actorId, current, dv * dt)
+	for ref in pairs(toProcess) do
+		
+		if not ref:isValid() then
+			detection.suspicion[ref] = nil
+			detection.detectionState[ref] = nil
+			if decayTimers[ref] then
+				decayTimers[ref]:cancel()
+				
+			end
+			decayTimers[ref] = nil
+			goto continue
+		end
+		
+		local current = detection.suspicion[ref] or 0
+		local state = detection.detectionState[ref] or {}
+		local mob = ref.mobile --[[@as tes3mobileActor]]
+
+		if mob then
+			state.inCombat = actorFightsPlayer(mob)
+		end
+		local hostile = state.inCombat or false
+
+		if hostile and not state.combatStarted then
+			state.combatStarted = detection.onSimulateTime
+		end
+
+		local enemyInPursuitWindow = false
+		if hostile and state.combatStarted then
+			enemyInPursuitWindow = (detection.onSimulateTime - state.combatStarted) <= config.combatHidingTimer
+		end
+
+		if enemyInPursuitWindow then
+			current = 1
+			state.lastUpdate = detection.onSimulateTime
+			restartDecayTimer(ref)
+		elseif hostile then
+			local distance = ref.position:distance(tes3.player.position)
+			if distance < config.baseRange * 2 then
+				local playerSeen = tes3.testLineOfSight({ reference1 = ref, reference2 = tes3.player })
+				if playerSeen then
+					if mob and mob.inCombat then
+						state.combatStarted = detection.onSimulateTime
+					end
+				end
 			end
 		end
 
-		-- Clean up fully decayed actors
-		if current <= 0 and not active then
-			detection.suspicion[actorId] = nil
-			detectionState[actorId] = nil
-			sneakChanceLogTime[actorId] = nil
-			if decayTimers[actorId] then
-				decayTimers[actorId]:cancel()
-				decayTimers[actorId] = nil
+		
+
+		-- Never-stamped (nil) actors count as stale; explicit nil check avoids an early-load quirk.
+		local lastUpdate = state.lastUpdate
+		local isStale = (lastUpdate == nil) or (detection.onSimulateTime - lastUpdate) >= staleThreshold
+		local active = not isStale
+
+		if active and not hostile and current < 1 and tes3.mobilePlayer.isSneaking then
+    		gainExp = true
+		end 
+
+		if hostile or current >= 1 then
+			blockExp = true
+		end
+
+		-- DEBUG: per-actor diagnostic message box (enable by raising logLevel to debug/trace)
+		--if log.level >= mwse.logLevel.debug then
+		--	tes3.messageBox(
+		-- 		"Ref: %s | current=%.3f | active=%s | state.inCombat=%s |  enemyInPursuitWindow=%s | rate=%.4f | timestamp=%.3f | player.InCombat=%s",
+		-- 		ref.id,
+		-- 		current,
+		-- 		tostring(active),
+		-- 		tostring(state.inCombat),
+		-- 		tostring(enemyInPursuitWindow),
+		-- 		state.rate or -1,
+		-- 		detection.onSimulateTime,
+		-- 		tostring(tes3.mobilePlayer.inCombat)
+		-- 	)
+		-- end
+		
+		if mob and active and not enemyInPursuitWindow then
+			
+			local angle = mob:getViewToActor(tes3.mobilePlayer)
+			local angleFactor = getAngleFactor(angle)
+			local rate = state.rate or config.detFloor
+			
+			-- Apply chameleon
+			rate = math.clamp(rate * (1 - (chameleon / 100)), config.detFloor, config.detCap)
+
+			-- Apply invisiblity
+			if invisible then
+                rate = config.detFloor
+            end
+
+            if standingStill and (not playerInLight or invisible) then
+                local hidingTerm = (1 - angleFactor) * config.hidingBonus
+                rate = math.clamp(rate - hidingTerm, 0, config.detCap)
+            end
+
+			local delta = rate * dt / config.fillTime
+			current = math.min(1.0, current + delta)
+
+			if current >= 1 then
+				local playerSeen = tes3.testLineOfSight({ reference1 = ref, reference2 = tes3.player })
+				if playerSeen then
+					local pm = tes3.worldController.mobManager.processManager
+					pm:detectSneak(mob, tes3.mobilePlayer, true)
+				end
 			end
-		else
-			detection.suspicion[actorId] = current
+
+
+			restartDecayTimer(ref)
+			log:trace("Suspicion up for %s: %.3f (+%.4f/frame) rate=%.4f/s", ref.id, current, delta, rate)
+		elseif not decayTimers[ref] and not enemyInPursuitWindow then
+			current = math.max(0.0, current - dv * dt)
+			if current > 0 then
+				log:trace("Suspicion down for %s: %.3f (-%.4f/frame)", ref.id, current, dv * dt)
+			end
+		end
+
+		-- Clean up fully decayed actors.
+		if current <= 0 and not active then
+			if mob and mob.inCombat and state.combatStarted ~= nil then
+				mob:stopCombat(true)
+				local wanderRange = mob.cell.isOrBehavesAsExterior and 2000 or 400
+				tes3.setAIWander({ reference = ref, range = wanderRange, reset = true, idles = generateIdles() })
+			end
+			detection.suspicion[ref] = nil
+			detection.detectionState[ref] = nil
+			if decayTimers[ref] then
+				decayTimers[ref]:cancel()
+				decayTimers[ref] = nil
+			end
+		else --If still running, just set the updated value
+			detection.suspicion[ref] = current
+		end
+		::continue::
+	end
+
+	if gainExp and not blockExp then
+		detectionExperienceTimer = detectionExperienceTimer + dt
+		if detectionExperienceTimer >= 1 then
+			detectionExperienceTimer = 0
+			experience.levelSneak(experience.Source.avoidDetection, 0)
 		end
 	end
 end
 event.register(tes3.event.simulate, onSimulate)
 
---- Returns the current suspicion level (0.0–1.0) for the given actor ID.
----@param actorId string
+local function onDeath(e)
+	local ref = e.reference
+	if not ref then
+		 return
+	end
+	detection.suspicion[ref] = nil
+	detection.detectionState[ref] = nil
+	if decayTimers[ref] then
+		decayTimers[ref]:cancel()
+		decayTimers[ref] = nil
+	end
+end
+event.register(tes3.event.death, onDeath)
+
+
+--- @param e combatStartedEventData
+local function onCombatStarted(e)
+	if e.target ~= tes3.mobilePlayer then
+		return
+	end
+
+	local ref = e.actor.reference
+	if not ref then
+		return
+	end
+
+	detection.suspicion[ref] = 1
+	local state = detection.detectionState[ref] or {}
+	state.inCombat = true
+	state.combatStarted = detection.onSimulateTime
+	state.lastUpdate = detection.onSimulateTime
+    detection.detectionState[ref] = state
+end
+event.register(tes3.event.combatStarted, onCombatStarted)
+
+
+--- Returns the current suspicion level (0.0-1.0) for the given actor ID.
+---@param ref tes3reference
 ---@return number
-function detection.getSuspicion(actorId)
-	return detection.suspicion[actorId] or 0
+function detection.getSuspicion(ref)
+	if ref:isValid() then
+		return detection.suspicion[ref]
+	end
+	return 0
 end
 
 --- Adds suspicion to an actor, capped at 1.0. Restarts the decay delay timer.
----@param actorId string
----@param amount number  0.0–1.0
-function detection.addSuspicion(actorId, amount)
-	local current = math.min((detection.suspicion[actorId] or 0) + amount, 1.0)
-	detection.suspicion[actorId] = current
-	restartDecayTimer(actorId)
+---@param ref tes3reference
+---@param amount number  0.0-1.0
+function detection.addSuspicion(ref, amount)
+	if ref:isValid() then
+		local current = math.min((detection.suspicion[ref] or 0) + amount, 1.0)
+		detection.suspicion[ref] = current
+		restartDecayTimer(ref)
+	end
 end
 
 --- Clears all suspicion and tracking state for an actor immediately.
----@param actorId string
-function detection.clearSuspicion(actorId)
-	detection.suspicion[actorId] = nil
-	detectionState[actorId] = nil
-	if decayTimers[actorId] then
-		decayTimers[actorId]:cancel()
-		decayTimers[actorId] = nil
+---@param ref tes3reference
+function detection.clearSuspicion(ref)
+	detection.suspicion[ref] = nil
+	detection.detectionState[ref] = nil
+	if decayTimers[ref] then
+		decayTimers[ref]:cancel()
+		decayTimers[ref] = nil
 	end
 end
 

@@ -19,14 +19,14 @@ interop.events = {
 	detected = "SA_SO_detected",
 }
 
---- Returns the current suspicion level (0.0–1.0) for the given actor reference ID.
+--- Returns the current suspicion level (0.0-1.0) for the given actor reference ID.
 ----@param actorId string
 ----@return number
 interop.getSuspicion = detection.getSuspicion
 
 --- Adds suspicion to an actor, capped at 1.0. Restarts the decay delay timer.
 ----@param actorId string
-----@param amount number  0.0–1.0
+----@param amount number  0.0-1.0
 interop.addSuspicion = detection.addSuspicion
 
 --- Clears all suspicion and tracking state for an actor immediately.

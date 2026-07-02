@@ -1,6 +1,46 @@
 local config = require("StormAtronach.SO.config")
 
-local authors = { { name = "Storm Atronach", url = "https://next.nexusmods.com/profile/StormAtronach0" } }
+local authors = { 
+	{ name = "Storm Atronach", url = "https://next.nexusmods.com/profile/StormAtronach0" },
+	{ name = "Rhjelte", url = "https://www.nexusmods.com/profile/rhjelte" },
+}
+
+-- Interop with Essential Indicator
+local SO_INTEROP_ID = "StealthOverhaul"
+local eiInstalled, ei = pcall(require, "Essential Indicators.interop")
+if not eiInstalled then
+	ei = nil
+end
+
+local function toggleEssentialIndicatorCrosshair()
+		if ei then
+			if config.crosshairColorEnabled and config.eiInteropEnabled and config.modEnabled then
+				ei.registerDisabledIndicator(ei.indicatorEnum.SneakIndicator, true, true, SO_INTEROP_ID)
+				ei.registerReplacementTexture(ei.textureEnum.DefaultTexture,"textures/sa_so_ch_128/crosshair.dds", SO_INTEROP_ID ,1000)
+
+				local soUiScale = config.crosshairScale
+				local scaleDifference = 4 -- To match the size of our 128px crosshair, we need to multiply Essential Indicators 32px crosshair by 4
+				local eiScale = 100 * scaleDifference * soUiScale
+				ei.registerScaleOverride(ei.scaleTypeEnum.DefaultIndicatorScale, eiScale, SO_INTEROP_ID, 1000)
+			else
+				ei.registerDisabledIndicator(ei.indicatorEnum.SneakIndicator, false, false, SO_INTEROP_ID)
+				ei.deregisterReplacementTexture(ei.textureEnum.DefaultTexture, SO_INTEROP_ID)
+				ei.deregisterScaleOverride(ei.scaleTypeEnum.DefaultIndicatorScale, SO_INTEROP_ID)
+			end
+		end
+	end
+
+	local function rescaleEiIndicator()
+		if ei then
+			if config.eiInteropEnabled and config.crosshairColorEnabled then
+				ei.deregisterScaleOverride(ei.scaleTypeEnum.DefaultIndicatorScale, SO_INTEROP_ID)
+				local soUiScale = config.crosshairScale
+				local scaleDifference = 4 -- Based on 128px sprite, whereas mw and essential indicator crosshair sprite is 32px
+				local eiScale = 100 * scaleDifference * soUiScale
+				ei.registerScaleOverride(ei.scaleTypeEnum.DefaultIndicatorScale, eiScale, SO_INTEROP_ID, 1000)
+			end
+		end
+	end
 
 --- @param self mwseMCMInfo|mwseMCMHyperlink
 local function center(self)
@@ -37,6 +77,9 @@ local function registerModConfig()
 		label = "Enable Mod",
 		description = "Enable or disable Stealth Overhaul.",
 		configKey = "modEnabled",
+		callback = function()
+			toggleEssentialIndicatorCrosshair()
+		end,
 	})
 
 	page:createLogLevelOptions({ configKey = "logLevel" })
@@ -48,6 +91,21 @@ local function registerModConfig()
 		max = 5,
 		step = 1,
 		configKey = "aiUpdateTime",
+	})
+
+	page:createOnOffButton({
+		label = "Set alarm to threshold when NPCs load in",
+		description = "If this is on, the NPCs AI Alarm value will be set to the threshold value, to make sure that people actually care about you stealing stuff.",
+		configKey = "setAlarmToThreshold"
+	})
+
+	page:createSlider({
+		label = "Alarm threshold",
+		description = "If the above option is toggled on, it will set NPC's alarm value to this if they have a lower value when they are loaded.",
+		min = 0,
+		max = 100,
+		step = 1,
+		configKey = "alarmThreshold",
 	})
 
 	-- Detection page
@@ -109,7 +167,7 @@ local function registerModConfig()
 
 	detection:createSlider({
 		label = "Detection Rate Cap",
-		description = "Maximum detection rate per second (0–1). Prevents instant detection even at point-blank. Default 0.95.",
+		description = "Maximum detection rate per second (0-1). Prevents instant detection even at point-blank. Default 0.95.",
 		min = 0.1,
 		max = 1.0,
 		step = 0.05,
@@ -168,6 +226,45 @@ local function registerModConfig()
 		configKey = "suspicionDecayDelay",
 	})
 
+	detection:createSlider({
+		label = "Hiding bonus",
+		description = "Standing still behind an NPC and not in a light subtracts from the current tick up rate, and can even make suspicion go down again. 0 means this feature is turned off.",
+		min = 0,
+		max = 0.4,
+		step = 0.01,
+		decimalPlaces = 2,
+		configKey = "hidingBonus",
+	})
+
+	detection:createSlider({
+		label = "Combat hiding timers",
+		description = "Amount of seconds from last seen during combat before suspicion starts to decay.",
+		min = 0,
+		max = 5,
+		step = 1,
+		configKey = "combatHidingTimer",
+	})
+
+	detection:createSlider({
+		label = "Combat detection multiplier",
+		description = "When player fights anything, other actors have their suspicion rate set to the Detection Rate Cap multiplied with this multiplier. The idea is that hiding while fighting is not possible, but the exact amount can be tweaked here.",
+		min = 0,
+		max = 2,
+		step = 0.1,
+		decimalPlaces = 1,
+		configKey = "combatDetectionMultiplier",
+	})
+
+	detection:createSlider({
+		label = "Start stealth suspicion multiplier",
+		description = "When you start sneaking, different actors will gain an amount of suspicion based on several factors (if you are behind them or not etc.). This multiplier makes them get a higher or lower initial suspicion value.",
+		min = 0.1,
+		max = 2,
+		step = 0.1,
+		decimalPlaces = 1,
+		configKey = "startStealthSuspicionMultiplier",
+	})
+
 	--[[ Steal Suspicion Bonus: disabled while onCrimeWitnessed is commented out.
 	detection:createSlider({
 		label = "Steal Suspicion Bonus",
@@ -186,21 +283,24 @@ local function registerModConfig()
 
 	hud:createYesNoButton({
 		label = "Sneak Eye Crosshair",
-		description = "While sneaking, overlays the crosshair with an animated sneak eye that opens as suspicion rises (closed at 0, fully open at 1.0). Reflects the highest suspicion among nearby actors.",
+		description = "While sneaking, overlays the crosshair with an animated sneak eye that opens as suspicion rises (closed at 0, fully open at 1.0). Reflects the highest suspicion among nearby actors, meaning enemies will attack you, and neutral NPCs will notice a crime committed when they have line of sight when the eye is fully opened.",
 		configKey = "crosshairColorEnabled",
+		callback = function()
+			toggleEssentialIndicatorCrosshair()
+		end,
 	})
 
-	hud:createDropdown({
-		label = "Sneak Eye Size",
-		description = "Pixel size of the sneak eye crosshair. Larger values require higher-resolution textures.",
-		options = {
-			{ label = "32",  value = 32  },
-			{ label = "64",  value = 64  },
-			{ label = "128", value = 128 },
-		},
-		configKey = "crosshairSize",
+	hud:createSlider({
+		label = "Sneak Eye Scale",
+		description = "The scale of the sneak eye crosshair. Larger value means scaling the image up, smaller means scaling down.",
+		min = 0.1,
+		max = 2,
+		step = 0.1,
+		decimalPlaces = 1,
+		configKey = "crosshairScale",
 		callback = function()
 			event.trigger("SA_SO_crosshairRecreate")
+			rescaleEiIndicator()
 		end,
 	})
 
@@ -237,16 +337,18 @@ local function registerModConfig()
 	hud:createCategory({ label = "Suspicion Indicators" })
 
 	hud:createYesNoButton({
-		label = "Suspicion Fillbars",
+		label = "Suspicion Markers",
+		description = "Show a 3D marker above each nearby NPC while sneaking, animating to open and shows clearly when someone suspects you and will see what you do.",
+		configKey = "markerEnabled",
+	})
+
+	hud:createYesNoButton({
+		label = "Suspicion Fillbars (not recommended, mostly for debug)",
 		description = "Show a suspicion fillbar above each nearby NPC while sneaking. Disabled by default.",
 		configKey = "fillbarEnabled",
 	})
 
-	hud:createYesNoButton({
-		label = "Suspicion Markers",
-		description = "Show a 3D marker above each nearby NPC while sneaking, scaling from green to red with suspicion level.",
-		configKey = "markerEnabled",
-	})
+
 
 	hud:createSlider({
 		label = "Display Range (units)",
@@ -257,24 +359,15 @@ local function registerModConfig()
 		configKey = "barRange",
 	})
 
-	hud:createCategory({ label = "Suspicion Marker" })
+	hud:createCategory({ label = "Interop"})
 
-	hud:createSlider({
-		label = "Marker Min Size",
-		description = "Size of the warning marker (in game units) at minimum suspicion.",
-		min = 5,
-		max = 100,
-		step = 5,
-		configKey = "markerMinSize",
-	})
-
-	hud:createSlider({
-		label = "Marker Max Size",
-		description = "Size of the warning marker (in game units) at full suspicion.",
-		min = 5,
-		max = 200,
-		step = 5,
-		configKey = "markerMaxSize",
+	hud:createYesNoButton({
+		label = "Essential Indicators interop",
+		description = "When ON, and having version 1.7 or higher of Essential Indicators, you will have all the behavior from Essential Indicators, but matching UI style to the stealth eye.",
+		configKey = "eiInteropEnabled",
+		callback = function() 
+			toggleEssentialIndicatorCrosshair()
+		end,
 	})
 
 	-- Sneak Strike page
@@ -511,6 +604,66 @@ local function registerModConfig()
 		jump = 0.5,
 		decimalPlaces = 1,
 		variable = mwse.mcm.createTableVariable({ id = "marksmanThrown", table = mult }),
+	})
+
+	-- Experience tweak page
+	local experiencePage = template:createSideBarPage({ label = "Experience", showReset = true }) --[[@as mwseMCMSideBarPage]]
+	createSidebar(experiencePage)
+
+	experiencePage:createSlider({
+		label = "XP multiplier - Avoid detection",
+		description = "Every second while you are not hidden, but not yet seen, you will gain a small amount of XP. That amount is multiplied by this value.",
+		step = 0.1,
+		decimalPlaces = 1,
+		min = 0,
+		max = 5,
+		configKey = "detectionExpMultiplier"
+	})
+
+	experiencePage:createSlider({
+		label = "XP multiplier - Pickpocket",
+		description = "Every time you pick a pocket, you will gain some XP. That amount is multiplied by this value. Note: Using the recommended mod Pickpocket by Mort will make this do nothing, and exp will be handled through that instead.",
+		step = 0.1,
+		decimalPlaces = 1,
+		min = 0,
+		max = 5,
+		configKey = "pickPocketExpMultiplier"
+	})
+
+	experiencePage:createSlider({
+		label = "XP multiplier - Sneak strike",
+		description = "Every time you perform a Sneak Strike, you will gain some XP. That amount is multiplied by this value.",
+		step = 0.1,
+		decimalPlaces = 1,
+		min = 0,
+		max = 5,
+		configKey = "sneakStrikeExpMultiplier"
+	})
+
+	experiencePage:createSlider({
+		label = "XP multiplier - Interop",
+		description = "Every time you gain experience from another mod that has interop with Stealth Overhaul (like Sneaky Snatcher), that amount is multiplied by this value.",
+		step = 0.1,
+		decimalPlaces = 1,
+		min = 0,
+		max = 5,
+		configKey = "interopExpMultiplier"
+	})
+
+	experiencePage:createOnOffButton({
+		label = "Owned containers give XP",
+		description = "If you activate an owned container when this mod is on (during the right sneaky conditions) you get XP as if stealing an item. Only once per cell visit. Might be exploitable, and can be turned off here.",
+		configKey = "containersGiveXP"
+	})
+	
+	experiencePage:createSlider({
+		label = "Bonus time added to XP gain steal window",
+		description = "You only get XP from stealing stuff if someone saw you (if they are considered active by the mod). Normally, an NPC is active for twice the AI tick time + 0.5 seconds. This might be a bit short time for some if you play with the recommended 1 second AI tick time. This value adds more time (in seconds) to the allowed window after the last AI tick where someone sensed you.\n\nRecommended option is to set this to 0 or 1.",
+		step = 0.1,
+		decimalPlaces = 1,
+		min = 0,
+		max = 2,
+		configKey = "bonusStealWindow"
 	})
 
 	-- Stolen items page
