@@ -671,6 +671,12 @@ local function registerModConfig()
 	createSidebar(stolen)
 
 	stolen:createYesNoButton({
+		label = "Track Stolen Items",
+		description = "Scan the player's inventory for stolen goods after each pickup so the detection mechanics below have current crime data. Off by default: the scan's cost scales with inventory size, and the two detection mechanics below do nothing without it.",
+		configKey = "stolenItemsTracking",
+	})
+
+	stolen:createYesNoButton({
 		label = "Guard Detection (Stolen Items)",
 		description = "Guards will attempt to detect stolen items on the player above a bounty threshold. Disabled by default as it is not yet fully polished.",
 		configKey = "stolenItemsMechanic_Guard",

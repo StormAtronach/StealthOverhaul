@@ -182,6 +182,15 @@ function util.checkInventoryForStolenItems()
 end
 --- Updates the current crime data in the player data
 function util.updateCurrentCrime()
+    -- Sweep gated off by default (perf); single chokepoint for every caller.
+    -- When off, clear any stale crime once (idempotent, so it doesn't re-run every frame).
+    if not config.stolenItemsTracking then
+        local data = util.getData()
+        if data.currentCrime.value ~= 0 or data.currentCrime.size ~= 0 then
+            util.resetCurrentCrime()
+        end
+        return
+    end
     local auxData = util.checkInventoryForStolenItems()
     local data = util.getData()
     data.currentCrime.value     = auxData.value

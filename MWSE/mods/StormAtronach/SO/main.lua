@@ -29,7 +29,7 @@ local function setAIIntervalTime(e)
 	if e.mobile and e.mobile.scanInterval then
     	e.mobile.scanInterval = config.aiUpdateTime
 	end
-	if config.setAlarmToThreshold and e.mobile.alarm < config.alarmThreshold then
+	if config.setAlarmToThreshold and e.mobile.alarm and e.mobile.alarm < config.alarmThreshold then
 		e.mobile.alarm = config.alarmThreshold
 	end
 end
@@ -144,13 +144,16 @@ end
 event.register("SA_SO_detected", detected)
 
 
---- Updating the list of stolen items
+--- Updating the list of stolen items. itemTileUpdated fires in bursts (one per tile redraw),
+--- so coalesce into a single rescan on the next simulate frame via a dirty flag.
+local crimeDirty = false
+
 --- @param e itemTileUpdatedEventData
 local function itemTileUpdatedCallback(e)
 	if not config.modEnabled then return end
 	-- Don't do stuff in the menu, only when picking up things in the world
 	if tes3ui.menuMode() then return end
-	util.updateCurrentCrime()
+	crimeDirty = true
 end
 event.register(tes3.event.itemTileUpdated, itemTileUpdatedCallback)
 
@@ -158,8 +161,16 @@ event.register(tes3.event.itemTileUpdated, itemTileUpdatedCallback)
 --- @param e menuExitEventData
 local function menuExitCallback(e)
 	if not config.modEnabled then return end
-	util.updateCurrentCrime()
+	crimeDirty = true
 end
 event.register(tes3.event.menuExit, menuExitCallback)
+
+-- Drain the dirty flag once per frame so the rescan runs at most once per burst.
+local function updateCrimeIfDirty(e)
+	if not crimeDirty then return end
+	crimeDirty = false
+	util.updateCurrentCrime()
+end
+event.register(tes3.event.simulate, updateCrimeIfDirty)
 
 
