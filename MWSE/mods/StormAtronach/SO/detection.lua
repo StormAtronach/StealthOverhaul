@@ -3,9 +3,15 @@ local experience = require("StormAtronach.SO.experience")
 
 local log = mwse.Logger.new({ moduleName = "detection", level = config.logLevel })
 
+local m1pe_installed, m1pe = pcall(require, "Modernized 1st Person Experience.interop")
+if not m1pe_installed then
+	m1pe = nil
+end
+
+
 local detection = {}
 
- detection.onSimulateTime = 0
+detection.onSimulateTime = 0
 
 -- Per-actor suspicion progress: 0.0 (unseen) -> 1.0 (fully detected).
 -- Read by stealthbar.lua.
@@ -53,7 +59,7 @@ local function scanCellLights(cell)
 	end
 	for ref in cell:iterateReferences(tes3.objectType.light) do
 		local light = ref.object --[[@as tes3light]]
-		if not ref.disabled and light.radius and light.radius > 0 then
+		if not ref.disabled and light.radius and light.radius > 0 and not light.isNegative then
 			table.insert(lightSources, { ref = ref, radius = light.radius })
 		end
 	end
@@ -62,11 +68,11 @@ end
 
 --- Check every 0.5s whether the player is within any cached light's radius.
 local function checkPlayerLight()
+	playerInLight = false
 	if not config.lightMechanicEnabled then
 		return
 	end
 	local playerPos = tes3.player.position
-	playerInLight = false
 	for _, ls in ipairs(lightSources) do
 		local ref = ls.ref
 		if ref and ref:isValid() and not ref.disabled then
@@ -86,6 +92,7 @@ local function recalculateLights(cell)
 		lightCheckTimer:cancel()
 		lightCheckTimer = nil
 	end
+	if not config.lightMechanicEnabled then return end
 	scanCellLights(cell)
 	if #lightSources > 0 then
 		lightCheckTimer = timer.start({ type = timer.simulate, duration = 0.5, iterations = -1, callback = checkPlayerLight })
@@ -438,7 +445,7 @@ local function onSimulate(e)
 
 		if active and not hostile and current < 1 and tes3.mobilePlayer.isSneaking then
     		gainExp = true
-		end 
+		end
 
 		if hostile or current >= 1 then
 			blockExp = true
@@ -454,7 +461,7 @@ local function onSimulate(e)
 		-- 		tostring(state.inCombat),
 		-- 		tostring(enemyInPursuitWindow),
 		-- 		state.rate or -1,
-		-- 		detection.onSimulateTime,
+		-- 		detection.onSimulateTime,s
 		-- 		tostring(tes3.mobilePlayer.inCombat)
 		-- 	)
 		-- end
@@ -484,6 +491,9 @@ local function onSimulate(e)
 			if current >= 1 then
 				local playerSeen = tes3.testLineOfSight({ reference1 = ref, reference2 = tes3.player })
 				if playerSeen then
+					if not mob.isPlayerDetected and m1pe and config.shakeOnDiscovered then
+						m1pe.doCameraShake("SO_Discovered", config.shakeSize, 0.0, 1.0, config.shakeSpeed, 0.8, 1, false, 0.0, true)
+					end
 					local pm = tes3.worldController.mobManager.processManager
 					pm:detectSneak(mob, tes3.mobilePlayer, true)
 				end

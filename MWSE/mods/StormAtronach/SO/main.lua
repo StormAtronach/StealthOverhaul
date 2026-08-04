@@ -10,16 +10,11 @@ local log = mwse.Logger.new({ moduleName = "main", level = config.logLevel })
 
 require("StormAtronach.SO.mcm")
 
--- For interop with Essential Indicator
-local SO_INTEROP_ID = "StealthOverhaul"
-local eiInstalled, ei = pcall(require, "Essential Indicators.interop")
-if not eiInstalled then
-	ei = nil
-end
-
 -- VARIABLES
 local guardCooldown = 0
 local npcCooldown = {}
+
+local eiInterop = require("StormAtronach.SO.eiInterop")
 
 -- Housekeeping
 
@@ -42,20 +37,7 @@ local function onLoad(e)
 	guardCooldown = 0		 -- Reset the guard cooldown
 	util.getData() 			 -- Update or create the playerData container
 	util.updateFactionList() -- Update or create the faction list
-
-	-- Interop with Essential Indicators
-	if ei then
-		print("[Stealth Overhaul] Essential Indicators interop activated")
-		if config.eiInteropEnabled and config.crosshairColorEnabled and config.modEnabled then
-			ei.registerDisabledIndicator(ei.indicatorEnum.SneakIndicator, true, true, SO_INTEROP_ID)
-			ei.registerReplacementTexture(ei.textureEnum.DefaultTexture,"textures/sa_so_ch_128/crosshair.dds", SO_INTEROP_ID ,1000)
-
-			local soUiScale = config.crosshairScale
-			local scaleDifference = 4 -- Based on 128px sprite, whereas mw and essential indicator crosshair sprite is 32px
-			local eiScale = 100 * scaleDifference * soUiScale
-			ei.registerScaleOverride(ei.scaleTypeEnum.DefaultIndicatorScale, eiScale, SO_INTEROP_ID, 1000)
-		end
-	end
+	eiInterop.toggleEssentialIndicatorCrosshair()
 end
 event.register(tes3.event.loaded,onLoad)
 
@@ -173,4 +155,15 @@ local function updateCrimeIfDirty(e)
 end
 event.register(tes3.event.simulate, updateCrimeIfDirty)
 
-
+-- 
+local sneakedLastFrame = false
+local function updateEiCursorState()
+	if not config.eiCrosshairOnlyWhenSneaking then return end
+	if tes3.mobilePlayer.isSneaking ~= sneakedLastFrame then
+		eiInterop.toggleEssentialIndicatorCrosshair()
+	end
+	sneakedLastFrame = tes3.mobilePlayer.isSneaking
+end
+if eiInterop.ei then
+	event.register(tes3.event.simulate, updateEiCursorState)
+end

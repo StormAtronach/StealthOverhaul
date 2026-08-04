@@ -1,46 +1,10 @@
 local config = require("StormAtronach.SO.config")
+local eiInterop = require("StormAtronach.SO.eiInterop")
 
 local authors = { 
 	{ name = "Storm Atronach", url = "https://next.nexusmods.com/profile/StormAtronach0" },
 	{ name = "Rhjelte", url = "https://www.nexusmods.com/profile/rhjelte" },
 }
-
--- Interop with Essential Indicator
-local SO_INTEROP_ID = "StealthOverhaul"
-local eiInstalled, ei = pcall(require, "Essential Indicators.interop")
-if not eiInstalled then
-	ei = nil
-end
-
-local function toggleEssentialIndicatorCrosshair()
-		if ei then
-			if config.crosshairColorEnabled and config.eiInteropEnabled and config.modEnabled then
-				ei.registerDisabledIndicator(ei.indicatorEnum.SneakIndicator, true, true, SO_INTEROP_ID)
-				ei.registerReplacementTexture(ei.textureEnum.DefaultTexture,"textures/sa_so_ch_128/crosshair.dds", SO_INTEROP_ID ,1000)
-
-				local soUiScale = config.crosshairScale
-				local scaleDifference = 4 -- To match the size of our 128px crosshair, we need to multiply Essential Indicators 32px crosshair by 4
-				local eiScale = 100 * scaleDifference * soUiScale
-				ei.registerScaleOverride(ei.scaleTypeEnum.DefaultIndicatorScale, eiScale, SO_INTEROP_ID, 1000)
-			else
-				ei.registerDisabledIndicator(ei.indicatorEnum.SneakIndicator, false, false, SO_INTEROP_ID)
-				ei.deregisterReplacementTexture(ei.textureEnum.DefaultTexture, SO_INTEROP_ID)
-				ei.deregisterScaleOverride(ei.scaleTypeEnum.DefaultIndicatorScale, SO_INTEROP_ID)
-			end
-		end
-	end
-
-	local function rescaleEiIndicator()
-		if ei then
-			if config.eiInteropEnabled and config.crosshairColorEnabled then
-				ei.deregisterScaleOverride(ei.scaleTypeEnum.DefaultIndicatorScale, SO_INTEROP_ID)
-				local soUiScale = config.crosshairScale
-				local scaleDifference = 4 -- Based on 128px sprite, whereas mw and essential indicator crosshair sprite is 32px
-				local eiScale = 100 * scaleDifference * soUiScale
-				ei.registerScaleOverride(ei.scaleTypeEnum.DefaultIndicatorScale, eiScale, SO_INTEROP_ID, 1000)
-			end
-		end
-	end
 
 --- @param self mwseMCMInfo|mwseMCMHyperlink
 local function center(self)
@@ -78,7 +42,7 @@ local function registerModConfig()
 		description = "Enable or disable Stealth Overhaul.",
 		configKey = "modEnabled",
 		callback = function()
-			toggleEssentialIndicatorCrosshair()
+			eiInterop.toggleEssentialIndicatorCrosshair()
 		end,
 	})
 
@@ -190,8 +154,8 @@ local function registerModConfig()
 	detection:createCategory({ label = "Light Mechanic" })
 
 	detection:createYesNoButton({
-		label = "Enable Light Mechanic",
-		description = "When enabled, the player's elusiveness is reduced while standing inside the radius of a light source in interior cells.",
+		label = "Exeprimental (and OFF by default): Enable Light Mechanic",
+		description = "When enabled, the player's elusiveness is reduced while standing inside the radius of a light source in interior cells. This is still not working very well, don't seem to identify all light sources, and don't act on them toggle on and off (through mods like douse the lights or Midnight Oil), so I have chosen to mark this as experimental and off as default. Usually handles fire places and campfires pretty well however.",
 		configKey = "lightMechanicEnabled",
 	})
 
@@ -265,6 +229,34 @@ local function registerModConfig()
 		configKey = "startStealthSuspicionMultiplier",
 	})
 
+	detection:createCategory({ label = "Interop" })
+
+	detection:createOnOffButton({
+		label = "Modernized 1st Person Experience - Camera shake on Discovered",
+		description = "If enabled, and using Modernized 1st Person Experience, a small camera shake will trigger when you are discovered when sneaking.",
+		configKey = "shakeOnDiscovered"
+	})
+
+	detection:createSlider({
+		label = "Camera shake on Discovered - Size",
+		description = "How big the camera shake is when discovered if the Camera shake on Discovered option is ON.",
+		min = 0.5,
+		max = 3,
+		step = 0.1,
+		decimalPlaces = 2,
+		configKey = "shakeSize",
+	})
+
+	detection:createSlider({
+		label = "Camera shake on Discovered - Speed",
+		description = "How fast the camera shake is when discovered if the Camera shake on Discovered option is ON.",
+		min = 15,
+		max = 40,
+		step = 0.1,
+		decimalPlaces = 1,
+		configKey = "shakeSpeed",
+	})
+
 	--[[ Steal Suspicion Bonus: disabled while onCrimeWitnessed is commented out.
 	detection:createSlider({
 		label = "Steal Suspicion Bonus",
@@ -286,7 +278,7 @@ local function registerModConfig()
 		description = "While sneaking, overlays the crosshair with an animated sneak eye that opens as suspicion rises (closed at 0, fully open at 1.0). Reflects the highest suspicion among nearby actors, meaning enemies will attack you, and neutral NPCs will notice a crime committed when they have line of sight when the eye is fully opened.",
 		configKey = "crosshairColorEnabled",
 		callback = function()
-			toggleEssentialIndicatorCrosshair()
+			eiInterop.toggleEssentialIndicatorCrosshair()
 		end,
 	})
 
@@ -300,7 +292,7 @@ local function registerModConfig()
 		configKey = "crosshairScale",
 		callback = function()
 			event.trigger("SA_SO_crosshairRecreate")
-			rescaleEiIndicator()
+			eiInterop.rescaleEiIndicator()
 		end,
 	})
 
@@ -365,8 +357,17 @@ local function registerModConfig()
 		label = "Essential Indicators interop",
 		description = "When ON, and having version 1.7 or higher of Essential Indicators, you will have all the behavior from Essential Indicators, but matching UI style to the stealth eye.",
 		configKey = "eiInteropEnabled",
-		callback = function() 
-			toggleEssentialIndicatorCrosshair()
+		callback = function()
+			eiInterop.toggleEssentialIndicatorCrosshair()
+		end,
+	})
+
+	hud:createYesNoButton({
+		label = "Only override Essential Indicator crosshair when Stealth Overhaul crosshair when sneaking",
+		description = "Will not do anything if Essential Indicators interop is disabled. Make it so that the crosshair is only overwritten when the player is sneaking, so they can use whatever other crosshair when not stealthing and still have a cohesive UI experience when sneaking.",
+		configKey = "eiCrosshairOnlyWhenSneaking",
+		callback = function()
+			eiInterop.toggleEssentialIndicatorCrosshair()
 		end,
 	})
 
