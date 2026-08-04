@@ -10,16 +10,11 @@ local log = mwse.Logger.new({ moduleName = "main", level = config.logLevel })
 
 require("StormAtronach.SO.mcm")
 
--- For interop with Essential Indicator
-local SO_INTEROP_ID = "StealthOverhaul"
-local eiInstalled, ei = pcall(require, "Essential Indicators.interop")
-if not eiInstalled then
-	ei = nil
-end
-
 -- VARIABLES
 local guardCooldown = 0
 local npcCooldown = {}
+
+local eiInterop = require("StormAtronach.SO.eiInterop")
 
 -- Housekeeping
 
@@ -29,7 +24,7 @@ local function setAIIntervalTime(e)
 	if e.mobile and e.mobile.scanInterval then
     	e.mobile.scanInterval = config.aiUpdateTime
 	end
-	if config.setAlarmToThreshold and e.mobile.alarm < config.alarmThreshold then
+	if config.setAlarmToThreshold and e.mobile.alarm and e.mobile.alarm < config.alarmThreshold then
 		e.mobile.alarm = config.alarmThreshold
 	end
 end
@@ -42,20 +37,7 @@ local function onLoad(e)
 	guardCooldown = 0		 -- Reset the guard cooldown
 	util.getData() 			 -- Update or create the playerData container
 	util.updateFactionList() -- Update or create the faction list
-
-	-- Interop with Essential Indicators
-	if ei then
-		print("[Stealth Overhaul] Essential Indicators interop activated")
-		if config.eiInteropEnabled and config.crosshairColorEnabled and config.modEnabled then
-			ei.registerDisabledIndicator(ei.indicatorEnum.SneakIndicator, true, true, SO_INTEROP_ID)
-			ei.registerReplacementTexture(ei.textureEnum.DefaultTexture,"textures/sa_so_ch_128/crosshair.dds", SO_INTEROP_ID ,1000)
-
-			local soUiScale = config.crosshairScale
-			local scaleDifference = 4 -- Based on 128px sprite, whereas mw and essential indicator crosshair sprite is 32px
-			local eiScale = 100 * scaleDifference * soUiScale
-			ei.registerScaleOverride(ei.scaleTypeEnum.DefaultIndicatorScale, eiScale, SO_INTEROP_ID, 1000)
-		end
-	end
+	eiInterop.toggleEssentialIndicatorCrosshair()
 end
 event.register(tes3.event.loaded,onLoad)
 
@@ -144,13 +126,16 @@ end
 event.register("SA_SO_detected", detected)
 
 
---- Updating the list of stolen items
+--- Updating the list of stolen items. itemTileUpdated fires in bursts (one per tile redraw),
+--- so coalesce into a single rescan on the next simulate frame via a dirty flag.
+local crimeDirty = false
+
 --- @param e itemTileUpdatedEventData
 local function itemTileUpdatedCallback(e)
 	if not config.modEnabled then return end
 	-- Don't do stuff in the menu, only when picking up things in the world
 	if tes3ui.menuMode() then return end
-	util.updateCurrentCrime()
+	crimeDirty = true
 end
 event.register(tes3.event.itemTileUpdated, itemTileUpdatedCallback)
 
@@ -158,8 +143,27 @@ event.register(tes3.event.itemTileUpdated, itemTileUpdatedCallback)
 --- @param e menuExitEventData
 local function menuExitCallback(e)
 	if not config.modEnabled then return end
-	util.updateCurrentCrime()
+	crimeDirty = true
 end
 event.register(tes3.event.menuExit, menuExitCallback)
 
+-- Drain the dirty flag once per frame so the rescan runs at most once per burst.
+local function updateCrimeIfDirty(e)
+	if not crimeDirty then return end
+	crimeDirty = false
+	util.updateCurrentCrime()
+end
+event.register(tes3.event.simulate, updateCrimeIfDirty)
 
+-- 
+local sneakedLastFrame = false
+local function updateEiCursorState()
+	if not config.eiCrosshairOnlyWhenSneaking then return end
+	if tes3.mobilePlayer.isSneaking ~= sneakedLastFrame then
+		eiInterop.toggleEssentialIndicatorCrosshair()
+	end
+	sneakedLastFrame = tes3.mobilePlayer.isSneaking
+end
+if eiInterop.ei then
+	event.register(tes3.event.simulate, updateEiCursorState)
+end

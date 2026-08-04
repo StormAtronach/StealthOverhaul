@@ -5,6 +5,7 @@ local default = {
 	modEnabled = true,
 	setAlarmToThreshold = true,
 	alarmThreshold = 50,
+	stolenItemsTracking = false, -- gates the per-pickup stolen-item inventory sweep; off by default (perf)
 	stolenItemsMechanic_Guard = false,
 	stolenItemsMechanic_Owner = false,
 	logLevel = mwse.logLevel.error,
@@ -30,8 +31,8 @@ local default = {
 	startStealthSuspicionMultiplier = 1, -- A multiplier to tweak how much or how little enemies detect the player when they start sneaking
 	combatDetectionMultiplier = 1, -- When player fights anything, other actors have their suspicion rate set to detCap * this multiplier. The idea is that hiding while fighting is not possible, but the exact amount can be tweaked here.
 	-- Light mechanic
-	lightMechanicEnabled = true, -- increase detection rate when player is inside a light source's radius
-	lightRateMult = 2.0, -- detection rate multiplier when player is in a light source (>1 = faster detection)
+	lightMechanicEnabled = false, -- increase detection rate when player is inside a light source's radius
+	lightRateMult = 1.5, -- detection rate multiplier when player is in a light source (>1 = faster detection)
 	decayTime = 10, -- seconds to clear full suspicion (1->0) after decay delay
 	suspicionDecayDelay = 3, -- seconds before decay begins after last increase
 	stealSuspicionBonus = 50, -- bonus added on undetected theft (0-100 maps to 0.0-1.0 of progress)
@@ -47,6 +48,7 @@ local default = {
 	markerEnabled = true,
 	barRange = 2000, -- bars/markers only shown within this distance (units)
 	eiInteropEnabled = true,
+	eiCrosshairOnlyWhenSneaking = false,
 	-- Sneak strike
 	sneakStrikeEnabled = true,
 	showSneakStrikeMessage = true, -- show a messageBox with the damage multiplier on a sneak strike
@@ -77,6 +79,10 @@ local default = {
 	interopExpMultiplier = 1,
 	containersGiveXP = true,
 	bonusStealWindow = 0.5, -- This is added to the window after a check to see if the player gets experience.
+	-- Interop
+	shakeOnDiscovered = true,
+	shakeSpeed = 25.0,
+	shakeSize = 1.5,
 	-- Debug
 	debugLines = false,
 }
