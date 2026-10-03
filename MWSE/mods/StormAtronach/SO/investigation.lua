@@ -1,200 +1,186 @@
+--- EXPERIMENTAL. NPC investigation: send an actor to a position, let it look around for a few
+--- seconds, then walk it back to where it started. Loaded only when config.experimentalInvestigation
+--- is on, and exposed as interop.investigation. Nothing in the mod triggers it yet.
+---
+--- Refactored from Celediel's More Attentive Guards sneak module. All credit for the original work
+--- goes to Celediel.
 local config = require("StormAtronach.SO.config")
-local interop = require("StormAtronach.SO.interop")
 
-local log = mwse.Logger.new()
+local log = mwse.Logger.new({ moduleName = "investigation", level = config.logLevel })
 
 local investigation = {}
 
--- The following is a refactoring of Celediel's More Attentive Guards sneak module
--- All credit for the original work goes to Celediel. Thanks! :)
+-- One investigation per NPC at a time, as in Celediel's original.
 
--- Variables
--- I think the only one follower at a time approach from Celediel makes sense, so let's keep it
-
--- From Celediel 
+--- Random idle weights; idle 5 (rubbing hands, showing wares) is kept at 0.
 local function generateIdles()
     local idles = {}
-    -- idles[1] = 0 -- ? idle 1 is not used?
     for i = 1, 4 do idles[i] = math.random(0, 60) end
-    idles[5] = 0 -- ? Idle6: Rubbing hands together and showing wares
+    idles[5] = 0
     for i = 6, 8 do idles[i] = math.random(0, 60) end
     return idles
 end
 
--- Auxiliary function to find actors
----@param npcId string
----@return tes3reference|nil
-local function findLoadedActor(npcId)
-    if not npcId then log:warn("NPC id not present") return nil end
-    local loadedActors = tes3.worldController.allMobileActors
-    for _, actor in pairs(loadedActors) do
-        if actor.reference.id == npcId then
-            return actor.reference
-        end
-    end
-    return nil
-end
-
+--- True if the NPC cannot act on an investigation right now.
 ---@param npcRef tes3reference
-local function doChecks(npcRef)
-    -- Let's check if the npcRef has a mobile
+---@return boolean
+local function cannotContinue(npcRef)
     local mob = npcRef.mobile
-    if not mob then log:debug("NPC %s does not have a mobile", npcRef.id or "none")return true end
-    -- Let's check if it can do stuff
-    if mob.isKnockedDown or mob.isHitStunned or
-    mob.isParalyzed or mob.isDead or mob.inCombat
-    then log:debug("NPC can't continue") return true end
-
-    -- Ok, if all good:
+    if not mob then
+        log:debug("NPC %s does not have a mobile", npcRef.id)
+        return true
+    end
+    if mob.isKnockedDown or mob.isHitStunned or mob.isParalyzed or mob.isDead or mob.inCombat then
+        log:debug("NPC %s can't continue", npcRef.id)
+        return true
+    end
     return false
 end
 
-
+--- Make the NPC wander around its current spot.
 ---@param npcRef tes3reference
-investigation.startWander = function(npcRef)
-        -- Set the wander range
-        if not (npcRef and npcRef.mobile) then log:debug("No ref or mobile in StartWander") return end
+function investigation.startWander(npcRef)
+    if not (npcRef and npcRef.mobile) then
+        log:debug("No ref or mobile in startWander")
+        return
+    end
 
-        local wanderRange = config.wanderRangeInterior or 500
-        if npcRef.mobile.cell.isOrBehavesAsExterior then
-            wanderRange = config.wanderRangeExterior or 2000
-        end
-        -- Regenerates the idles
-        local idles = generateIdles()
+    local wanderRange = config.wanderRangeInterior
+    if npcRef.mobile.cell.isOrBehavesAsExterior then
+        wanderRange = config.wanderRangeExterior
+    end
 
-        
-        tes3.setAIWander({ reference = npcRef, range = wanderRange, reset = true, idles = idles })
+    tes3.setAIWander({ reference = npcRef, range = wanderRange, reset = true, idles = generateIdles() })
 end
 
+--- Timer payloads hold safe handles, which cannot be serialised, so these timers do not persist
+--- across saves. An investigation interrupted by a save simply ends where the NPC stands.
 ---@param e mwseTimerCallbackData
 local function returnToOriginalPosition(e)
     local data = e.timer.data
-    if not data then log:debug("Payload for returnToOriginalPosition is missing") return end
-    
-    local npcRefSH = data.npcRef
+    if not data then
+        log:debug("Payload for returnToOriginalPosition is missing")
+        return
+    end
 
-    if not npcRefSH:valid() then log:debug("Reference does not exist in Return To Original Position") return end
+    local npcRefSH = data.npcRef
+    if not npcRefSH:valid() then
+        log:debug("Reference does not exist in returnToOriginalPosition")
+        return
+    end
     local npcRef = npcRefSH:getObject()
-    tes3.setAITravel({reference = npcRef, destination = data.originalPosition, reset = true})
+    tes3.setAITravel({ reference = npcRef, destination = data.originalPosition, reset = true })
 end
 
--- Checks if we reach the destination
+--- Poll once per second until the NPC reaches its destination (or gives up), then wander for a
+--- few seconds and head back.
 ---@param e mwseTimerCallbackData
 local function checkDestination(e)
     local data = e.timer.data
-    if not data then log:debug("Timer data payload not present") e.timer:cancel() return end
+    if not data then
+        log:debug("Timer data payload not present")
+        e.timer:cancel()
+        return
+    end
 
     local npcRefSH = data.npcRef
-    -- Check if this still exists
     if not npcRefSH:valid() then
-        log:debug("Reference no longer valid or mobile does not exist anymore")
-        e.timer:cancel() return
-    end
-
-    local npcRef = npcRefSH:getObject()
-
-    -- It is possible that the AI is not active then
-    if not npcRef.mobile.aiPlanner then
-        log:debug("AiPlanner for %s is not active anymore.", npcRef.id)
-        return
-    end
-    
-    -- Check if the AI package is still travel or if we have arrived and it is wander
-    local npcAIPackage = npcRef.mobile.aiPlanner.currentPackageIndex
-    local AITravel = npcAIPackage == tes3.aiPackage.travel
-    local AIWander = npcAIPackage == tes3.aiPackage.wander
-    if not (AITravel or AIWander) then
-        log:debug("For some reason, NPC is not travelling or wandering anymore")
-        e.timer:cancel() return
-    end
-
-    -- Check if the NPC can still travel:
-    local cantContinue = doChecks(npcRef)
-    if cantContinue then
-        log:debug("For some reason, NPC can't continue travel")
+        log:debug("Reference no longer valid in checkDestination")
         e.timer:cancel()
-        investigation.startWander(npcRef) -- Start wander ? I need to check if this conflicts with combat
         return
     end
 
-    -- Ok, for the actual check
-    -- Last minute nil-checking
-    if not (npcRef and npcRef.mobile and npcRef.mobile.position) then log:debug("Nil checking failed before restarting the wander") return end
-    local destination = data.destination or npcRef.mobile.position:copy()
-    local remainingDistance =  npcRef.mobile.position:distance(destination)
+    local npcRef = npcRefSH:getObject() --[[@as tes3reference]]
+    local mob = npcRef.mobile
+    if not mob or not mob.aiPlanner then
+        log:debug("AI planner for %s is not active anymore", npcRef.id)
+        return
+    end
 
-    local npcRefSHExit = tes3.makeSafeObjectHandle(npcRef)
-    -- Are we there yet?
-    if remainingDistance <= 5 or AIWander then
-        -- If we arrived, cancel the timer
+    -- Still travelling, or already arrived and wandering?
+    local package = mob.aiPlanner.currentPackageIndex
+    local travelling = package == tes3.aiPackage.travel
+    local wandering = package == tes3.aiPackage.wander
+    if not (travelling or wandering) then
+        log:debug("NPC %s is neither travelling nor wandering anymore", npcRef.id)
         e.timer:cancel()
-        -- Start wandering around
+        return
+    end
+
+    if cannotContinue(npcRef) then
+        log:debug("NPC %s can't continue travel", npcRef.id)
+        e.timer:cancel()
         investigation.startWander(npcRef)
-        -- Let's not spend the whole day here:
-        local investigationTime = math.random(3,8)
+        return
+    end
 
-        log:debug("Attempting to go back. NPC %s,",npcRef.id)
-    
-        -- Timer logic to start return to original position
-        timer.register("SA_SO_startTripBack", returnToOriginalPosition)
+    local destination = data.destination or mob.position:copy()
+    local remainingDistance = mob.position:distance(destination)
+
+    if remainingDistance <= 5 or wandering then
+        e.timer:cancel()
+        investigation.startWander(npcRef)
+
+        local investigationTime = math.random(3, 8)
+        log:debug("NPC %s arrived; heading back in %d s", npcRef.id, investigationTime)
+
         timer.start({
             type = timer.simulate,
             duration = investigationTime,
-            callback = "SA_SO_startTripBack",
             iterations = 1,
-            persist = true,
-            data = {npcRef = npcRefSHExit, originalPosition = data.originalPosition},
-            })
-        
+            callback = returnToOriginalPosition,
+            data = { npcRef = tes3.makeSafeObjectHandle(npcRef), originalPosition = data.originalPosition },
+        })
     end
 end
 
-
--- NPC gets suspicious and starts travelling to the position
+--- Send the NPC to look at a position.
 ---@param npcRef tes3reference
 ---@param destination tes3vector3
-investigation.startTravel = function(npcRef, destination)
-    -- Check that the inputs are there and not nil
-    if (not npcRef) or (not destination) then log:debug("Investigation start: Missing npcRef %s, missing destination %s", (not npcRef), (not destination)) return end
-    local cantContinue = doChecks(npcRef)
-    if cantContinue then log:debug("NPC is doing other stuff") return end
+---@return { originalPosition: tes3vector3, distance: number, duration: number }|nil
+function investigation.startTravel(npcRef, destination)
+    if not npcRef or not destination then
+        log:debug("startTravel: missing npcRef=%s, missing destination=%s", tostring(not npcRef), tostring(not destination))
+        return nil
+    end
+    if cannotContinue(npcRef) then
+        log:debug("NPC %s is doing other stuff", npcRef.id)
+        return nil
+    end
 
-    -- Let's avoid swimming creatures going on land
-    if npcRef.object and npcRef.object.swims then
+    -- Keep swimming creatures in the water.
+    if npcRef.object.swims then
         local waterLevel = tes3.player.cell.waterLevel or -20000
-        local checkPosition = destination.z > waterLevel
-        if checkPosition then log:debug("Avoiding fishes from going on land") return end
+        if destination.z > waterLevel then
+            log:debug("Not sending swimmer %s onto land", npcRef.id)
+            return nil
+        end
     end
 
     local aux = {}
     aux.originalPosition = npcRef.position:copy()
+    aux.distance = npcRef.position:distance(destination)
+    aux.duration = math.max(1, math.round(math.clamp(aux.distance / 50, config.minTravelTime, config.maxTravelTime), 0))
 
-    aux.distance    = npcRef.position:distance(destination)
-    aux.duration    = math.round(math.clamp(aux.distance/50,config.minTravelTime or 1, config.maxTravelTime or 15),0)
-    -- If for some reason the duration is less than one, let's set it as 1
-    if aux.duration < 1 then aux.duration = 1 end
-    -- yallah! let's go, my dear npc:
-    local npcRefSafe = tes3.makeSafeObjectHandle(npcRef)
-    timer.delayOneFrame(function() 
-        if not npcRefSafe:valid() then log:debug("NPC ref handle got invalidated") return end
-        local npcRefSafeRetrieved = npcRefSafe:getObject()
-        tes3.setAITravel({ reference = npcRefSafeRetrieved, destination = destination }) end)
-log:debug("Attempting to start travel. NPC %s, duration %s",npcRef.id,aux.duration)
-local message = string.format("Attempting to start travel. NPC %s, duration %s",npcRef.id,aux.duration)
--- tes3.messageBox(message) -- Debugging stuff
+    local npcRefSH = tes3.makeSafeObjectHandle(npcRef)
+    timer.delayOneFrame(function()
+        if not npcRefSH:valid() then
+            log:debug("NPC ref handle got invalidated before travel started")
+            return
+        end
+        local ref = npcRefSH:getObject() --[[@as tes3reference]]
+        tes3.setAITravel({ reference = ref, destination = destination })
+    end)
+    log:debug("Starting travel for NPC %s, duration %d s", npcRef.id, aux.duration)
 
-timer.register("SA_SO_checkIfNPCArrived", checkDestination)
     timer.start({
-        type        = timer.simulate,
-        duration    = 1,
-        callback    = "SA_SO_checkIfNPCArrived",
-        iterations  = aux.duration,
-        persist     = true,
-        data        = {npcRef = npcRefSafe, destination = destination, originalPosition = aux.originalPosition}
+        type = timer.simulate,
+        duration = 1,
+        iterations = aux.duration,
+        callback = checkDestination,
+        data = { npcRef = npcRefSH, destination = destination, originalPosition = aux.originalPosition },
     })
     return aux
 end
 
-
 return investigation
-

@@ -4,7 +4,7 @@ local config = require("StormAtronach.SO.config")
 
 local hasPickpocket = tes3.isLuaModActive("Pickpocket")
 
--- Make enum table and make sure it's not editable
+-- Read-only enum table.
 local function readOnly (t)
     return setmetatable(t, {
         __newindex = function()

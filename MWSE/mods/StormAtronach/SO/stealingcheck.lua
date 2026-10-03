@@ -25,7 +25,7 @@ local function targetAllowedToGiveXP(target)
 end
 
 local function playerAllowedXP()
-    local staleThreshold = config.aiUpdateTime * 2 + 0.5 + config.bonusStealWindow
+    local staleThreshold = detection.getStaleThreshold() + config.bonusStealWindow
     for ref, state in pairs(detection.detectionState) do
         ---@type tes3reference
         local r = ref
@@ -42,7 +42,8 @@ end
 --- @param e activateEventData
 local function activateCallback(e)
     if e.activator ~= tes3.player then return end
-    if not tes3.mobilePlayer.isSneaking or tes3.mobilePlayer.isPlayerDetected then return end
+    -- No XP while anyone fully sees the player or is fighting them.
+    if not tes3.mobilePlayer.isSneaking or detection.expBlocked then return end
     if tes3.hasOwnershipAccess { target = e.target } then return end
 
     if targetAllowedToGiveXP(e.target) and playerAllowedXP() then

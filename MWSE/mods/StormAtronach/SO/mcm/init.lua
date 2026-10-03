@@ -1,7 +1,7 @@
 local config = require("StormAtronach.SO.config")
 local eiInterop = require("StormAtronach.SO.eiInterop")
 
-local authors = { 
+local authors = {
 	{ name = "Storm Atronach", url = "https://next.nexusmods.com/profile/StormAtronach0" },
 	{ name = "Rhjelte", url = "https://www.nexusmods.com/profile/rhjelte" },
 }
@@ -15,7 +15,7 @@ end
 --- @param container mwseMCMSideBarPage
 local function createSidebar(container)
 	container.sidebar:createInfo({
-		text = "\nWelcome to Stealth Overhaul!\n\nHover over a feature for more info.\n\nMade by:",
+		text = "\nStealth Overhaul\n\nHover over a setting for details.\n\nMade by:",
 		postCreate = center,
 	})
 	for _, author in ipairs(authors) do
@@ -38,8 +38,8 @@ local function registerModConfig()
 	createSidebar(page)
 
 	page:createYesNoButton({
-		label = "Enable Mod",
-		description = "Enable or disable Stealth Overhaul.",
+		label = "Enable mod",
+		description = "Turn the whole mod on or off.",
 		configKey = "modEnabled",
 		callback = function()
 			eiInterop.toggleEssentialIndicatorCrosshair()
@@ -49,8 +49,8 @@ local function registerModConfig()
 	page:createLogLevelOptions({ configKey = "logLevel" })
 
 	page:createSlider({
-		label = "AI Update Time",
-		description = "Interval (in seconds) between NPC AI scans. The mod is balanced around 1 second. Lower values are more responsive but heavier on performance.",
+		label = "AI scan interval (seconds)",
+		description = "Seconds between NPC AI scans. The mod is tuned for 1. Lower is more responsive and costs more per frame.",
 		min = 1,
 		max = 5,
 		step = 1,
@@ -59,13 +59,13 @@ local function registerModConfig()
 
 	page:createOnOffButton({
 		label = "Set alarm to threshold when NPCs load in",
-		description = "If this is on, the NPCs AI Alarm value will be set to the threshold value, to make sure that people actually care about you stealing stuff.",
+		description = "Raise each NPC's AI Alarm to the threshold below when it loads, so NPCs with a low Alarm still react to theft.",
 		configKey = "setAlarmToThreshold"
 	})
 
 	page:createSlider({
 		label = "Alarm threshold",
-		description = "If the above option is toggled on, it will set NPC's alarm value to this if they have a lower value when they are loaded.",
+		description = "The Alarm value NPCs are raised to when the option above is on. NPCs already above it are left alone.",
 		min = 0,
 		max = 100,
 		step = 1,
@@ -76,11 +76,11 @@ local function registerModConfig()
 	local detection = template:createSideBarPage({ label = "Detection", showReset = true }) --[[@as mwseMCMSideBarPage]]
 	createSidebar(detection)
 
-	detection:createCategory({ label = "Detection Model" })
+	detection:createCategory({ label = "Detection model" })
 
 	detection:createSlider({
-		label = "Base Detection Range (units)",
-		description = "Maximum detection range at sneak skill 0. Higher = NPCs spot the player from further away. 1320 units = 60 ft.",
+		label = "Base detection range (units)",
+		description = "How far an NPC can detect you at Sneak 0. 1320 units is 60 feet.",
 		min = 200,
 		max = 4000,
 		step = 100,
@@ -88,8 +88,8 @@ local function registerModConfig()
 	})
 
 	detection:createSlider({
-		label = "Max Range Reduction (%)",
-		description = "How much sneak skill 100 shrinks the detection range relative to base. 75 means a master sneaker reduces NPC range by 75%.",
+		label = "Max range reduction (%)",
+		description = "How much Sneak 100 shrinks that range. At 75, a master sneaker can only be detected within a quarter of the base range.",
 		min = 10,
 		max = 95,
 		step = 5,
@@ -97,8 +97,8 @@ local function registerModConfig()
 	})
 
 	detection:createSlider({
-		label = "Sneak Skill Power",
-		description = "Curve of sneak skill's effect on range reduction. 1.0 = linear. Above 1.0 = diminishing returns at high sneak (recommended).",
+		label = "Sneak skill curve",
+		description = "Shape of the Sneak skill's effect on range. 1.0 is linear. Above 1.0, each point matters less at high Sneak. Default 1.2.",
 		min = 0.5,
 		max = 3.0,
 		step = 0.1,
@@ -108,8 +108,8 @@ local function registerModConfig()
 	})
 
 	detection:createSlider({
-		label = "Distance Falloff Power",
-		description = "How steeply detection drops off with distance. 1.0 = linear. 2.0 = squared (sharp ramp at close range, recommended).",
+		label = "Distance falloff curve",
+		description = "How fast detection drops with distance. 1.0 is linear. 2.0 is squared, so close range is far more dangerous than mid range. Default 2.0.",
 		min = 1.0,
 		max = 4.0,
 		step = 0.5,
@@ -119,8 +119,8 @@ local function registerModConfig()
 	})
 
 	detection:createSlider({
-		label = "Fill Time (seconds)",
-		description = "Time to fill the detection bar from 0 to 100% at maximum detection rate (rate = 1.0). Lower = faster detection overall.",
+		label = "Fill time (seconds)",
+		description = "Seconds to fill the suspicion bar from empty at the maximum rate. Lower means faster detection everywhere.",
 		min = 1.0,
 		max = 20.0,
 		step = 0.5,
@@ -130,8 +130,8 @@ local function registerModConfig()
 	})
 
 	detection:createSlider({
-		label = "Detection Rate Cap",
-		description = "Maximum detection rate per second (0-1). Prevents instant detection even at point-blank. Default 0.95.",
+		label = "Detection rate cap",
+		description = "Highest detection rate per second, 0 to 1. Keeps point-blank detection from being instant. Default 1.0.",
 		min = 0.1,
 		max = 1.0,
 		step = 0.05,
@@ -141,8 +141,8 @@ local function registerModConfig()
 	})
 
 	detection:createSlider({
-		label = "Detection Rate Floor",
-		description = "Minimum detection rate within NPC detection range. Prevents true invisibility:there is always some risk. Default 0.03.",
+		label = "Detection rate floor",
+		description = "Lowest detection rate while you are inside an NPC's range. Above 0 there is always some risk. Default 0.03.",
 		min = 0.0,
 		max = 0.2,
 		step = 0.01,
@@ -151,17 +151,28 @@ local function registerModConfig()
 		configKey = "detFloor",
 	})
 
-	detection:createCategory({ label = "Light Mechanic" })
+	detection:createSlider({
+		label = "Engine re-check interval (seconds)",
+		description = "While an actor fully detects you and can see you, the mod re-runs the engine's own detection check so the actor reacts without waiting for its next AI scan. This is the gap between those checks, per actor. 0 is every frame: the most responsive, and the most expensive in a crowded cell. Default 0.25.",
+		min = 0,
+		max = 2,
+		step = 0.05,
+		jump = 0.05,
+		decimalPlaces = 2,
+		configKey = "engineRecheckInterval",
+	})
+
+	detection:createCategory({ label = "Light mechanic" })
 
 	detection:createYesNoButton({
-		label = "Exeprimental (and OFF by default): Enable Light Mechanic",
-		description = "When enabled, the player's elusiveness is reduced while standing inside the radius of a light source in interior cells. This is still not working very well, don't seem to identify all light sources, and don't act on them toggle on and off (through mods like douse the lights or Midnight Oil), so I have chosen to mark this as experimental and off as default. Usually handles fire places and campfires pretty well however.",
+		label = "Enable light mechanic (experimental, off by default)",
+		description = "Detection builds faster while you stand inside a light source's radius in an interior. Campfires and fireplaces work well. It misses some light sources and ignores lights that mods such as Douse the Lights or Midnight Oil switch on and off, which is why it is off by default.",
 		configKey = "lightMechanicEnabled",
 	})
 
 	detection:createSlider({
-		label = "Light Rate Multiplier",
-		description = "How much faster detection builds when the player is inside a light source's radius. 2.0 = double the detection rate. Only active when Light Mechanic is enabled.",
+		label = "Light rate multiplier",
+		description = "Detection rate multiplier while you stand in a light. 2.0 doubles it. Only used when the light mechanic is on.",
 		min = 1.0,
 		max = 5.0,
 		step = 0.5,
@@ -170,11 +181,11 @@ local function registerModConfig()
 		configKey = "lightRateMult",
 	})
 
-	detection:createCategory({ label = "Suspicion Decay" })
+	detection:createCategory({ label = "Suspicion decay" })
 
 	detection:createSlider({
-		label = "Decay Time (seconds)",
-		description = "How many seconds it takes for full suspicion to clear completely once decay begins. Higher = NPCs stay alert longer.",
+		label = "Decay time (seconds)",
+		description = "Seconds for full suspicion to fall to zero once decay starts. Higher keeps NPCs alert longer.",
 		min = 1,
 		max = 60,
 		step = 1,
@@ -182,8 +193,8 @@ local function registerModConfig()
 	})
 
 	detection:createSlider({
-		label = "Decay Delay (seconds)",
-		description = "How long after the last suspicion increase before decay begins. Keeps NPCs alert for a moment even when the player steps out of detection range.",
+		label = "Decay delay (seconds)",
+		description = "Seconds after the last suspicion increase before decay starts. Keeps NPCs alert for a moment after you step out of range.",
 		min = 0,
 		max = 60,
 		step = 1,
@@ -192,7 +203,7 @@ local function registerModConfig()
 
 	detection:createSlider({
 		label = "Hiding bonus",
-		description = "Standing still behind an NPC and not in a light subtracts from the current tick up rate, and can even make suspicion go down again. 0 means this feature is turned off.",
+		description = "Standing still behind an NPC, outside any light, subtracts this from the rate at which its suspicion rises. Large values can make suspicion fall even while you are in range. 0 turns it off.",
 		min = 0,
 		max = 0.4,
 		step = 0.01,
@@ -201,8 +212,8 @@ local function registerModConfig()
 	})
 
 	detection:createSlider({
-		label = "Combat hiding timers",
-		description = "Amount of seconds from last seen during combat before suspicion starts to decay.",
+		label = "Combat hiding timer (seconds)",
+		description = "An enemy fighting you stays fully aware while it can see you, which means you are not sneaking or it has line of sight. This is how many seconds after it last saw you, while you sneak, before its suspicion may start to fall. 0 means it starts falling as soon as it loses sight of you. When suspicion reaches zero the enemy gives up the fight.",
 		min = 0,
 		max = 5,
 		step = 1,
@@ -211,7 +222,7 @@ local function registerModConfig()
 
 	detection:createSlider({
 		label = "Combat detection multiplier",
-		description = "When player fights anything, other actors have their suspicion rate set to the Detection Rate Cap multiplied with this multiplier. The idea is that hiding while fighting is not possible, but the exact amount can be tweaked here.",
+		description = "While you are fighting anyone, every other actor's detection rate is the rate cap times this value. The intent is that you cannot hide mid-fight. Set it below 1 to make that easier.",
 		min = 0,
 		max = 2,
 		step = 0.1,
@@ -221,7 +232,7 @@ local function registerModConfig()
 
 	detection:createSlider({
 		label = "Start stealth suspicion multiplier",
-		description = "When you start sneaking, different actors will gain an amount of suspicion based on several factors (if you are behind them or not etc.). This multiplier makes them get a higher or lower initial suspicion value.",
+		description = "When you crouch, each actor that can see you starts with some suspicion, based on whether you are in front of it and on your Sneak skill. This scales that starting value.",
 		min = 0.1,
 		max = 2,
 		step = 0.1,
@@ -232,14 +243,14 @@ local function registerModConfig()
 	detection:createCategory({ label = "Interop" })
 
 	detection:createOnOffButton({
-		label = "Modernized 1st Person Experience - Camera shake on Discovered",
-		description = "If enabled, and using Modernized 1st Person Experience, a small camera shake will trigger when you are discovered when sneaking.",
+		label = "Camera shake when discovered (Modernized 1st Person Experience)",
+		description = "Shake the camera when an actor fully detects you while you sneak. Needs Modernized 1st Person Experience.",
 		configKey = "shakeOnDiscovered"
 	})
 
 	detection:createSlider({
-		label = "Camera shake on Discovered - Size",
-		description = "How big the camera shake is when discovered if the Camera shake on Discovered option is ON.",
+		label = "Camera shake size",
+		description = "Strength of that shake.",
 		min = 0.5,
 		max = 3,
 		step = 0.1,
@@ -248,8 +259,8 @@ local function registerModConfig()
 	})
 
 	detection:createSlider({
-		label = "Camera shake on Discovered - Speed",
-		description = "How fast the camera shake is when discovered if the Camera shake on Discovered option is ON.",
+		label = "Camera shake speed",
+		description = "Speed of that shake.",
 		min = 15,
 		max = 40,
 		step = 0.1,
@@ -274,8 +285,8 @@ local function registerModConfig()
 	hud:createCategory({ label = "Crosshair" })
 
 	hud:createYesNoButton({
-		label = "Sneak Eye Crosshair",
-		description = "While sneaking, overlays the crosshair with an animated sneak eye that opens as suspicion rises (closed at 0, fully open at 1.0). Reflects the highest suspicion among nearby actors, meaning enemies will attack you, and neutral NPCs will notice a crime committed when they have line of sight when the eye is fully opened.",
+		label = "Sneak eye crosshair",
+		description = "While you sneak, replaces the crosshair with an eye that opens as suspicion rises: shut at 0, fully open at 1. It shows the highest suspicion among nearby actors. Once the eye is fully open, enemies in sight will attack you and bystanders in sight will report crimes they see.",
 		configKey = "crosshairColorEnabled",
 		callback = function()
 			eiInterop.toggleEssentialIndicatorCrosshair()
@@ -283,8 +294,8 @@ local function registerModConfig()
 	})
 
 	hud:createSlider({
-		label = "Sneak Eye Scale",
-		description = "The scale of the sneak eye crosshair. Larger value means scaling the image up, smaller means scaling down.",
+		label = "Sneak eye scale",
+		description = "Size of the eye. 1.0 is the drawn size, 2.0 is double.",
 		min = 0.1,
 		max = 2,
 		step = 0.1,
@@ -297,20 +308,20 @@ local function registerModConfig()
 	})
 
 	hud:createYesNoButton({
-		label = "Keep Vanilla Crosshair",
-		description = "When enabled, the vanilla crosshair dot remains visible underneath the sneak eye overlay. When disabled, the vanilla crosshair is hidden while the sneak eye is active.",
+		label = "Keep vanilla crosshair",
+		description = "Leave the vanilla crosshair dot visible under the eye. Off hides the dot while the eye is shown.",
 		configKey = "keepVanillaCrosshair",
 	})
 
 	hud:createYesNoButton({
-		label = "Animate Crosshair Transitions",
-		description = "When enabled, the sneak eye animates smoothly between stages as suspicion crosses each threshold. When disabled, it snaps instantly.",
+		label = "Animate crosshair transitions",
+		description = "Animate the eye between its five stages instead of snapping.",
 		configKey = "crosshairAnimated",
 	})
 
 	hud:createSlider({
-		label = "Crosshair Opening Speed",
-		description = "How fast the eye opens as suspicion rises. Higher values produce faster transitions. Default (6) gives approximately 0.5s per stage.",
+		label = "Crosshair opening speed",
+		description = "How fast the eye opens as suspicion rises. The default of 6 takes about half a second per stage.",
 		min = 1,
 		max = 20,
 		step = 1,
@@ -318,33 +329,33 @@ local function registerModConfig()
 	})
 
 	hud:createSlider({
-		label = "Crosshair Closing Speed",
-		description = "How fast the eye closes as suspicion falls. Higher values produce faster transitions. Default (6) gives approximately 0.5s per stage.",
+		label = "Crosshair closing speed",
+		description = "How fast the eye closes as suspicion falls. The default of 6 takes about half a second per stage.",
 		min = 1,
 		max = 20,
 		step = 1,
 		configKey = "crosshairCloseSpeed",
 	})
 
-	hud:createCategory({ label = "Suspicion Indicators" })
+	hud:createCategory({ label = "Suspicion indicators" })
 
 	hud:createYesNoButton({
-		label = "Suspicion Markers",
-		description = "Show a 3D marker above each nearby NPC while sneaking, animating to open and shows clearly when someone suspects you and will see what you do.",
+		label = "Suspicion markers",
+		description = "Show an eye above each nearby NPC while you sneak. It opens as that NPC's suspicion rises, so you can see who is about to notice you.",
 		configKey = "markerEnabled",
 	})
 
 	hud:createYesNoButton({
-		label = "Suspicion Fillbars (not recommended, mostly for debug)",
-		description = "Show a suspicion fillbar above each nearby NPC while sneaking. Disabled by default.",
+		label = "Suspicion fill bars (debug)",
+		description = "Show a suspicion bar above each nearby NPC while you sneak. Meant for debugging. Off by default.",
 		configKey = "fillbarEnabled",
 	})
 
 
 
 	hud:createSlider({
-		label = "Display Range (units)",
-		description = "Distance in game units within which suspicion bars and markers are shown. Only applies while sneaking.",
+		label = "Display range (units)",
+		description = "Markers and bars are only shown for NPCs within this distance. Only applies while sneaking.",
 		min = 500,
 		max = 5000,
 		step = 100,
@@ -355,7 +366,7 @@ local function registerModConfig()
 
 	hud:createYesNoButton({
 		label = "Essential Indicators interop",
-		description = "When ON, and having version 1.7 or higher of Essential Indicators, you will have all the behavior from Essential Indicators, but matching UI style to the stealth eye.",
+		description = "With Essential Indicators 1.7 or newer installed, keep all of its behaviour but draw its crosshair in the sneak eye's style.",
 		configKey = "eiInteropEnabled",
 		callback = function()
 			eiInterop.toggleEssentialIndicatorCrosshair()
@@ -363,8 +374,8 @@ local function registerModConfig()
 	})
 
 	hud:createYesNoButton({
-		label = "Only override Essential Indicator crosshair when Stealth Overhaul crosshair when sneaking",
-		description = "Will not do anything if Essential Indicators interop is disabled. Make it so that the crosshair is only overwritten when the player is sneaking, so they can use whatever other crosshair when not stealthing and still have a cohesive UI experience when sneaking.",
+		label = "Only override the Essential Indicators crosshair while sneaking",
+		description = "Only swap in the sneak eye style while you sneak, so you can use any other crosshair the rest of the time. Does nothing unless the interop above is on.",
 		configKey = "eiCrosshairOnlyWhenSneaking",
 		callback = function()
 			eiInterop.toggleEssentialIndicatorCrosshair()
@@ -372,40 +383,40 @@ local function registerModConfig()
 	})
 
 	-- Sneak Strike page
-	local strike = template:createSideBarPage({ label = "Sneak Strike", showReset = true }) --[[@as mwseMCMSideBarPage]]
+	local strike = template:createSideBarPage({ label = "Sneak strike", showReset = true }) --[[@as mwseMCMSideBarPage]]
 	createSidebar(strike)
 
 	strike:createYesNoButton({
-		label = "Enable Sneak Strike",
-		description = "Enable or disable the sneak strike system. When disabled, vanilla sneak attack behaviour applies.",
+		label = "Enable sneak strike",
+		description = "Turn the sneak strike system on or off. Off means vanilla sneak attacks.",
 		configKey = "sneakStrikeEnabled",
 	})
 
 	strike:createYesNoButton({
-		label = "Show Sneak Strike Message",
-		description = "Display a message showing the damage multiplier when landing a sneak strike.",
+		label = "Show sneak strike message",
+		description = "Show the damage multiplier when a sneak strike lands.",
 		configKey = "showSneakStrikeMessage",
 	})
 
-	strike:createCategory({ label = "Non-Lethal Knockout" })
+	strike:createCategory({ label = "Non-lethal knockout" })
 	strike:createInfo({
-		text = "Any weapon with a multiplier of exactly 1.0 triggers the knockout mechanic instead of dealing bonus damage: a helmet weight check is performed, and on success the target receives a fatigue dump and stops combat.",
+		text = "A weapon whose multiplier is exactly 1.0 knocks out instead of dealing bonus damage. Your skill with that weapon is checked against the target's helmet weight. On success the target loses all fatigue and drops out of combat.",
 	})
 
-	strike:createCategory({ label = "Sneak Skill Scaling" })
+	strike:createCategory({ label = "Sneak skill scaling" })
 	strike:createInfo({
-		text = "When enabled, sneak strike damage is further multiplied by a value based on your Sneak skill level.",
+		text = "Sneak strike damage is also multiplied by a factor from your Sneak skill. The final multiplier never drops below 1.0, so a low skill means no bonus rather than a penalty. Knockout weapons, those set to exactly 1.0, ignore skill scaling.",
 	})
 
 	strike:createYesNoButton({
-		label = "Enable Skill Scaling",
-		description = "Multiply sneak strike damage by a skill-based factor. The factor is determined by your Sneak skill and the breakpoints on this page.",
+		label = "Enable skill scaling",
+		description = "Multiply sneak strike damage by the Sneak skill factor set with the breakpoints below.",
 		configKey = "sneakSkillMultEnabled",
 	})
 
 	strike:createYesNoButton({
-		label = "Step Mode",
-		description = "When enabled, uses the multiplier of the nearest lower breakpoint (e.g. Sneak 60 uses the Sneak 50 value, Oblivion style). When disabled, linearly interpolates between breakpoints.",
+		label = "Step mode",
+		description = "Use the value of the nearest breakpoint at or below your skill, so Sneak 60 uses the Sneak 50 value, as in Oblivion. Off interpolates between breakpoints.",
 		configKey = "sneakSkillMultSteps",
 	})
 
@@ -457,15 +468,15 @@ local function registerModConfig()
 	})
 
 	-- Weapon Multipliers page
-	local weapons = template:createSideBarPage({ label = "Weapon Multipliers", showReset = true }) --[[@as mwseMCMSideBarPage]]
+	local weapons = template:createSideBarPage({ label = "Weapon multipliers", showReset = true }) --[[@as mwseMCMSideBarPage]]
 	createSidebar(weapons)
 
 	weapons:createInfo({
-		text = "WARNING - Setting any multiplier to exactly 1.0 disables bonus damage and triggers the non-lethal knockout mechanic instead: a helmet weight check is performed, and on success the target receives a fatigue dump and stops combat.\n\nMultipliers are applied after undoing vanilla's sneak bonus (4x melee, 1.5x ranged).",
+		text = "A multiplier of exactly 1.0 means no bonus damage: the weapon knocks out instead. Your skill with the weapon is checked against the target's helmet weight, and on success the target loses all fatigue and drops out of combat.\n\nThese multipliers replace vanilla's sneak bonus (4x melee, 1.5x ranged).",
 	})
 
 	local mult = config.sneakStrikeMult
-	local nonLethalNote = "Set to 1.0 to trigger the non-lethal knockout mechanic instead of dealing bonus damage."
+	local nonLethalNote = "Set to 1.0 to knock out instead of dealing bonus damage."
 
 	weapons:createCategory({ label = "Unarmed" })
 	weapons:createSlider({
@@ -543,7 +554,7 @@ local function registerModConfig()
 		variable = mwse.mcm.createTableVariable({ id = "bluntTwoWide", table = mult }),
 	})
 
-	weapons:createCategory({ label = "Other Melee" })
+	weapons:createCategory({ label = "Other melee" })
 	weapons:createSlider({
 		label = "Spear: Spear, Lance, Halberd",
 		description = nonLethalNote,
@@ -575,7 +586,7 @@ local function registerModConfig()
 		variable = mwse.mcm.createTableVariable({ id = "axeTwoHand", table = mult }),
 	})
 
-	weapons:createCategory({ label = "Ranged (vanilla base: 1.5x)" })
+	weapons:createCategory({ label = "Ranged (vanilla bonus 1.5x)" })
 	weapons:createSlider({
 		label = "Bow: Short Bow, Long Bow",
 		description = nonLethalNote,
@@ -612,8 +623,8 @@ local function registerModConfig()
 	createSidebar(experiencePage)
 
 	experiencePage:createSlider({
-		label = "XP multiplier - Avoid detection",
-		description = "Every second while you are not hidden, but not yet seen, you will gain a small amount of XP. That amount is multiplied by this value.",
+		label = "XP multiplier: avoiding detection",
+		description = "Each second you spend inside someone's detection range without being fully seen earns a little Sneak XP. This scales it.",
 		step = 0.1,
 		decimalPlaces = 1,
 		min = 0,
@@ -622,8 +633,8 @@ local function registerModConfig()
 	})
 
 	experiencePage:createSlider({
-		label = "XP multiplier - Pickpocket",
-		description = "Every time you pick a pocket, you will gain some XP. That amount is multiplied by this value. Note: Using the recommended mod Pickpocket by Mort will make this do nothing, and exp will be handled through that instead.",
+		label = "XP multiplier: pickpocketing",
+		description = "XP for each pickpocket, scaled by this. Does nothing if Mort's Pickpocket is installed; that mod hands out the XP instead.",
 		step = 0.1,
 		decimalPlaces = 1,
 		min = 0,
@@ -632,8 +643,8 @@ local function registerModConfig()
 	})
 
 	experiencePage:createSlider({
-		label = "XP multiplier - Sneak strike",
-		description = "Every time you perform a Sneak Strike, you will gain some XP. That amount is multiplied by this value.",
+		label = "XP multiplier: sneak strikes",
+		description = "XP for each sneak strike that lands, scaled by this.",
 		step = 0.1,
 		decimalPlaces = 1,
 		min = 0,
@@ -642,8 +653,8 @@ local function registerModConfig()
 	})
 
 	experiencePage:createSlider({
-		label = "XP multiplier - Interop",
-		description = "Every time you gain experience from another mod that has interop with Stealth Overhaul (like Sneaky Snatcher), that amount is multiplied by this value.",
+		label = "XP multiplier: other mods",
+		description = "XP that other mods, such as Sneaky Snatcher, grant through this mod's interop, scaled by this.",
 		step = 0.1,
 		decimalPlaces = 1,
 		min = 0,
@@ -653,13 +664,13 @@ local function registerModConfig()
 
 	experiencePage:createOnOffButton({
 		label = "Owned containers give XP",
-		description = "If you activate an owned container when this mod is on (during the right sneaky conditions) you get XP as if stealing an item. Only once per cell visit. Might be exploitable, and can be turned off here.",
+		description = "Opening an owned container while sneaking and unseen gives XP as if you stole an item, once per cell visit. Easy to exploit, so you can turn it off.",
 		configKey = "containersGiveXP"
 	})
-	
+
 	experiencePage:createSlider({
-		label = "Bonus time added to XP gain steal window",
-		description = "You only get XP from stealing stuff if someone saw you (if they are considered active by the mod). Normally, an NPC is active for twice the AI tick time + 0.5 seconds. This might be a bit short time for some if you play with the recommended 1 second AI tick time. This value adds more time (in seconds) to the allowed window after the last AI tick where someone sensed you.\n\nRecommended option is to set this to 0 or 1.",
+		label = "Extra time in the stealing XP window (seconds)",
+		description = "Stealing only gives XP if someone was close enough to catch you. An NPC counts for one and a half AI scan periods plus half a second after it last checked on you, which is 3.5 seconds at the default scan interval. This adds seconds to that window.\n\n0 or 1 is recommended.",
 		step = 0.1,
 		decimalPlaces = 1,
 		min = 0,
@@ -668,30 +679,30 @@ local function registerModConfig()
 	})
 
 	-- Stolen items page
-	local stolen = template:createSideBarPage({ label = "Stolen Items", showReset = true }) --[[@as mwseMCMSideBarPage]]
+	local stolen = template:createSideBarPage({ label = "Stolen items", showReset = true }) --[[@as mwseMCMSideBarPage]]
 	createSidebar(stolen)
 
 	stolen:createYesNoButton({
-		label = "Track Stolen Items",
-		description = "Scan the player's inventory for stolen goods after each pickup so the detection mechanics below have current crime data. Off by default: the scan's cost scales with inventory size, and the two detection mechanics below do nothing without it.",
+		label = "Track stolen items",
+		description = "Scan your inventory for stolen goods after each pickup so the two mechanics below have current data. Off by default. The scan's cost grows with inventory size, and the mechanics below do nothing without it.",
 		configKey = "stolenItemsTracking",
 	})
 
 	stolen:createYesNoButton({
-		label = "Guard Detection (Stolen Items)",
-		description = "Guards will attempt to detect stolen items on the player above a bounty threshold. Disabled by default as it is not yet fully polished.",
+		label = "Guard detection",
+		description = "Guards near you may notice stolen goods once your bounty is above the threshold below. Off by default; not finished.",
 		configKey = "stolenItemsMechanic_Guard",
 	})
 
 	stolen:createYesNoButton({
-		label = "Owner Detection (Stolen Items)",
-		description = "Owners can detect items stolen from them when near the player. Disabled by default as it is not yet fully polished.",
+		label = "Owner detection",
+		description = "An NPC near you may notice goods stolen from them. Off by default; not finished.",
 		configKey = "stolenItemsMechanic_Owner",
 	})
 
 	stolen:createSlider({
-		label = "Bounty Threshold",
-		description = "Bounty above which guards will attempt to detect stolen items on the player.",
+		label = "Bounty threshold",
+		description = "Guards only check you for stolen goods when your bounty is above this.",
 		min = 0,
 		max = 1000,
 		step = 10,
@@ -699,8 +710,8 @@ local function registerModConfig()
 	})
 
 	stolen:createSlider({
-		label = "Guard Max Detection Distance",
-		description = "How close you must be to a guard for stolen item detection to trigger. Each unit is roughly 25 feet.",
+		label = "Guard max detection distance",
+		description = "How close a guard must be to check you. Each step is about 25 feet.",
 		min = 1,
 		max = 10,
 		step = 1,
@@ -709,7 +720,7 @@ local function registerModConfig()
 
 	stolen:createSlider({
 		label = "Lenience",
-		description = "How easy it is to conceal stolen items. 0.5: very hard, 2.0: very easy.",
+		description = "How easy stolen goods are to hide. 0.5 is very hard, 2.0 very easy.",
 		min = 0.5,
 		max = 2,
 		step = 0.25,
@@ -719,8 +730,8 @@ local function registerModConfig()
 	})
 
 	stolen:createSlider({
-		label = "Disposition Drop on Discovery",
-		description = "How much disposition drops when the owner finds you with their stolen items.",
+		label = "Disposition drop on discovery",
+		description = "How much an owner's disposition falls when they catch you with their goods.",
 		min = 0,
 		max = 100,
 		step = 1,
@@ -728,8 +739,8 @@ local function registerModConfig()
 	})
 
 	stolen:createSlider({
-		label = "Guard Cooldown (seconds)",
-		description = "Cooldown before a guard can scan you for stolen items again.",
+		label = "Guard cooldown (seconds)",
+		description = "Seconds before a guard can check you again.",
 		min = 1,
 		max = 30,
 		step = 1,
@@ -737,12 +748,63 @@ local function registerModConfig()
 	})
 
 	stolen:createSlider({
-		label = "Owner Cooldown (seconds)",
-		description = "Cooldown before an owner can scan you for stolen items again.",
+		label = "Owner cooldown (seconds)",
+		description = "Seconds before an owner can check you again.",
 		min = 1,
 		max = 30,
 		step = 1,
 		configKey = "ownerCooldownTime",
+	})
+
+	-- Experimental page
+	local experimental = template:createSideBarPage({ label = "Experimental", showReset = true }) --[[@as mwseMCMSideBarPage]]
+	createSidebar(experimental)
+
+	experimental:createCategory({ label = "NPC investigation" })
+	experimental:createInfo({
+		text = "Unfinished. Sends an NPC to a suspicious spot to look around, then back. Nothing in the mod triggers it yet; other mods can call it through the interop table. Needs a restart to load or unload.",
+	})
+
+	experimental:createYesNoButton({
+		label = "Load investigation module",
+		description = "Load the module at startup and expose it as interop.investigation. Takes effect after a restart.",
+		configKey = "experimentalInvestigation",
+	})
+
+	experimental:createSlider({
+		label = "Wander range, interiors (units)",
+		description = "How far the NPC wanders around the spot in interior cells.",
+		min = 100,
+		max = 2000,
+		step = 50,
+		configKey = "wanderRangeInterior",
+	})
+
+	experimental:createSlider({
+		label = "Wander range, exteriors (units)",
+		description = "How far the NPC wanders around the spot in exterior cells.",
+		min = 100,
+		max = 5000,
+		step = 100,
+		configKey = "wanderRangeExterior",
+	})
+
+	experimental:createSlider({
+		label = "Minimum travel time (seconds)",
+		description = "Least time an NPC gets to reach the spot before it gives up.",
+		min = 1,
+		max = 30,
+		step = 1,
+		configKey = "minTravelTime",
+	})
+
+	experimental:createSlider({
+		label = "Maximum travel time (seconds)",
+		description = "Most time an NPC gets to reach the spot before it gives up.",
+		min = 1,
+		max = 60,
+		step = 1,
+		configKey = "maxTravelTime",
 	})
 end
 

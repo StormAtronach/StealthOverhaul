@@ -1,16 +1,6 @@
 local config = require("StormAtronach.SO.config")
 local detection = require("StormAtronach.SO.detection")
 
--- Interop with Essential Indicator
--- For interop with Essential Indicator
-local essentialIndicatorInstalled, ei = pcall(require, "Essential Indicators.interop")
-if not essentialIndicatorInstalled then
-	ei = nil
-end
-
--- Interop with modern lockpicking
-local modernLockpickingActive = false
-
 local log = mwse.Logger.new({ moduleName = "stealthbar", level = config.logLevel })
 
 local MARKER_FRAME_COUNT = 21
@@ -106,7 +96,7 @@ local function createCrosshair()
 	block.autoHeight = true
 	block.consumeMouseEvents = false
 
-	local size = 128 --config.crosshairSize -- Instead of relying on MCM, always set to 128 as that is the only one that matters anylonger with scale added. This way we don't have to change config files for people who already installed.
+	local size = 128 -- only the 128px texture set ships; crosshairScale sizes it
 	for i = 1, MARKER_FRAME_COUNT do
 		local img = block:createImage({ path = string.format("textures/sa_so_ch_%d/%d.dds", size, i) })
 		img.visible = false
@@ -137,20 +127,20 @@ local BAR_HEIGHT = 8
 -- How far above the projected head point to draw the bar (in screen fraction)
 local BAR_Y_OFFSET = 0.04
 
--- Pool of per-actor bar menus: [actorId] = { menu, fillbar }
+-- Pool of per-actor bar menus: [ref] = { menu, fillbar }
 local barPool = {}
 
 -- === 3-D suspicion marker (billboard sneak eye) ===
 local MARKER_MESH = "sa_so/sa_se.nif"
 local MARKER_Z = 145
 
--- [actorId] = { node = niNode, ref = tes3reference, texProp = niTexturingProperty, flipCtrl = niTimeController|nil }
+-- [ref] = { node = niNode, ref = tes3reference, texProp = niTexturingProperty, flipCtrl = niTimeController|nil }
 local markerPool = {}
 local markerTemplate
 local markerTextures -- niSourceTexture[1..21], pre-loaded once
 
-local markerDisplayFrame = {} -- Table of floats, used per marker same way as crosshairDisplayFrame
-local markerCurrentAlpha = {} -- table of floats, used per marker same way as crosshairCurrentFade
+local markerDisplayFrame = {} -- [ref] = smoothed frame, as crosshairDisplayFrame
+local markerCurrentAlpha = {} -- [ref] = current alpha, as crosshairCurrentFade
 
 
 local function loadMarkerTextures()
@@ -179,19 +169,19 @@ local function attachMarker(ref)
 	if not ref.sceneNode or not ref:isValid() then
 		return nil
 	end
-	
+
 	local markerData = markerPool[ref]
 	if markerData then
 		return markerData.node
 	end
-	
+
 	local tmpl = getMarkerTemplate()
 	if not tmpl then
 		return nil
 	end
 
-	local node = tmpl:clone()
-	local shape = node:getObjectByName("eye_plane")
+	local node = tmpl:clone() --[[@as niNode]]
+	local shape = node:getObjectByName("eye_plane") --[[@as niTriShape|nil]]
 	if shape then
     	local mat = shape.materialProperty
     	if mat then
@@ -224,8 +214,6 @@ local function attachMarker(ref)
 	ref.sceneNode:update()
 	ref.sceneNode:updateEffects()
 
-	---@diagnostic disable-next-line: param-type-mismatch
-	local shape = node:getObjectByName("eye_plane") --[[@as niTriShape]]
 	local texProp = shape and shape.texturingProperty --[[@as niTexturingProperty]]
 	local flipCtrl = shape and shape.controller --[[@as niTimeController]]
 	markerPool[ref] = { node = node, ref = ref, texProp = texProp, flipCtrl = flipCtrl}
@@ -279,7 +267,7 @@ local function getDisplayValue(ref, dt)
 	local alpha = 1 - math.exp(-k * dt)
 	local display = state.display + (actual - state.display) * alpha
 
-	-- Threshold was 0.5 (old 0-100 scale); corrected to 0.005 for 0-1 scale
+	-- Drop the state once the display value is effectively zero.
 	if display < 0.005 and actual <= 0 then
 		displayState[ref] = nil
 		return 0
@@ -363,9 +351,7 @@ local function getOrCreateBar(ref)
 end
 
 local function destroyAllBars()
-	-- The engine destroys all UI elements during loading, so we must not call
-	-- destroy() here - doing so crashes on an already-freed pointer.
-	-- Just drop our references; the engine handles cleanup.
+	-- The engine frees every UI element on load. destroy() on them crashes, so only drop the references.
 	barPool = {}
 	displayState = {}
 	markerPool = {}
@@ -375,6 +361,8 @@ local function destroyAllBars()
 	crosshairActiveFrame = nil
 	crosshairDisplayFrame = nil
 	log:debug("Bar and marker pools reset on load")
+	-- The HUD menu may have been rebuilt by the load; never reuse the old element pointer.
+	crosshairParent = tes3ui.findMenu("MenuMulti")
 	createCrosshair()
 end
 event.register(tes3.event.loaded, destroyAllBars)
@@ -396,7 +384,7 @@ local function fadeMarker(ref, targetAlpha, speed, dt)
 	if not markerData then
 		return
 	end
-	
+
 	local currentAlpha = markerCurrentAlpha[ref] or 0
 	currentAlpha = lerp(currentAlpha, targetAlpha, 1 - math.exp(-dt * speed))
 	currentAlpha = math.clamp(currentAlpha, 0, 1)
@@ -414,7 +402,7 @@ local function maybeDetachMarker(ref, targetAlpha, markersToDetach)
     if not markerData then return end
     if markerCurrentAlpha[ref] <= 0.01 and (not targetAlpha or targetAlpha == 0) then
         markerData.node.appCulled = true
-        
+
         markerDisplayFrame[ref] = nil
         markerCurrentAlpha[ref] = nil
 
@@ -431,7 +419,7 @@ local function onSimulate(e)
 	for _, bar in pairs(barPool) do
 		bar.menu.visible = false
 	end
-	
+
 	if not config.modEnabled then
 		setCrosshairFrame(nil)
 		for ref in pairs(markerPool) do
@@ -481,13 +469,13 @@ local function onSimulate(e)
 		end
 	else
 		crosshairDisplayFrame = smoothFrame(crosshairDisplayFrame, MARKER_FRAME_COUNT, config.crosshairCloseSpeed, dt)
-		crosshairFrameIndex = math.clamp(math.round(crosshairDisplayFrame), 1, MARKER_FRAME_COUNT) 
+		crosshairFrameIndex = math.clamp(math.round(crosshairDisplayFrame), 1, MARKER_FRAME_COUNT)
 	end
 
 	if crosshairFrameIndex then
 		setCrosshairFrame(crosshairFrameIndex)
 	end
-	
+
 	-- Crosshair: Fade in and out logic
 	local crosshairTargetFade = config.crosshairColorEnabled and tes3.mobilePlayer.isSneaking and 1 or 0
 
@@ -498,13 +486,18 @@ local function onSimulate(e)
 		end
 	end
 
-	-- TO DO: Evaluate if this is relevant or not
+	-- No markers or bars while a menu is open.
 	if tes3ui.menuMode() then
 		return
 	end
 
 	local mobilePlayer = tes3.mobilePlayer
 	if not mobilePlayer then
+		return
+	end
+
+	-- Nothing to draw and nothing still fading out: skip the per-frame proximity scan.
+	if not mobilePlayer.isSneaking and not next(markerPool) and not next(barPool) and not next(displayState) then
 		return
 	end
 
@@ -532,7 +525,7 @@ local function onSimulate(e)
 		log:trace("[marker] %s suspicionValue=%.3f", ref.id, suspicionValue)
 
 		local markerData = markerPool[ref]
-		-- Make sure things have markers
+		-- Attach a marker on first suspicion.
 		if config.markerEnabled then
 			if not markerData then
 				-- Attach only while sneaking; otherwise it culls and rebuilds every frame (see shouldShow).
@@ -543,7 +536,7 @@ local function onSimulate(e)
 					end
 				end
 			end
-			-- Make sure we have a proper markerData to work with (start a new if statement to act on a newly created marker too)
+			-- Separate if: a marker attached just above is updated in this same frame.
 			if markerData then
 				markerData.node.appCulled = false
 				markerDisplayFrame[ref] = markerDisplayFrame[ref] or MARKER_FRAME_COUNT
@@ -552,7 +545,7 @@ local function onSimulate(e)
 
 				if tes3.mobilePlayer.isSneaking then
 					local actualSuspicion = detection.suspicion[ref] or 0
-					
+
 					if  actualSuspicion >= 1.0 then
 						targetFrame = 1
 					else
@@ -571,7 +564,7 @@ local function onSimulate(e)
 
 				else
 					markerDisplayFrame[ref] = smoothFrame(markerDisplayFrame[ref], MARKER_FRAME_COUNT, config.crosshairCloseSpeed, dt)
-					markerFrameIndex = math.clamp(math.round(markerDisplayFrame[ref]), 1, MARKER_FRAME_COUNT) 
+					markerFrameIndex = math.clamp(math.round(markerDisplayFrame[ref]), 1, MARKER_FRAME_COUNT)
 				end
 
 				if markerFrameIndex then
@@ -583,7 +576,7 @@ local function onSimulate(e)
 				targetAlpha = targetAlpha * ((MARKER_FRAME_COUNT - markerDisplayFrame[ref]) * 0.06)
 				fadeMarker(ref, targetAlpha, 10, dt)
 				maybeDetachMarker(ref, targetAlpha, markersToDetach)
-				
+
 			end
 		else
 			if markerData then
@@ -599,7 +592,7 @@ local function onSimulate(e)
 			goto continue
 		end
 
-		-- Project ~head height above the actor's feet
+		-- Project a point about head height above the actor's feet.
 		local headPos = tes3vector3.new(ref.position.x, ref.position.y, ref.position.z + 120)
 		local sp = worldToScreen(headPos)
 		-- Skip bar if behind camera or off-screen
@@ -654,14 +647,14 @@ local function onSimulate(e)
 end
 event.register(tes3.event.simulate, onSimulate, { priority = -1 })
 
-local function onModernLockpickingStart() 
+local function onModernLockpickingStart()
 	if crosshairParent then
 		crosshairParent.visible = false
 	end
 end
 event.register("tauer.modern-lockpicking.lockpickingStart", onModernLockpickingStart)
 
-local function onModernLockpickingEnded() 
+local function onModernLockpickingEnded()
 	if crosshairParent then
 		crosshairParent.visible = true
 	end

@@ -1,7 +1,7 @@
 local eiInterop = {}
 local config = require("StormAtronach.SO.config")
 
--- For interop with Essential Indicator
+-- Essential Indicators interop: one crosshair shared by the sneak eye and its indicators.
 local SO_INTEROP_ID = "StealthOverhaul"
 eiInterop.eiInstalled, eiInterop.ei = pcall(require, "Essential Indicators.interop")
 if not eiInterop.eiInstalled then
@@ -15,7 +15,7 @@ local function enableCrosshair()
 	eiInterop.ei.registerReplacementTexture(eiInterop.ei.textureEnum.DefaultTexture,"textures/sa_so_ch_128/crosshair.dds", SO_INTEROP_ID ,1000)
 
 	local soUiScale = config.crosshairScale
-	local scaleDifference = 4 -- To match the size of our 128px crosshair, we need to multiply Essential Indicators 32px crosshair by 4
+	local scaleDifference = 4 -- Essential Indicators draws a 32px crosshair; ours is 128px
 	local eiScale = 100 * scaleDifference * soUiScale
 	eiInterop.ei.registerScaleOverride(eiInterop.ei.scaleTypeEnum.DefaultIndicatorScale, eiScale, SO_INTEROP_ID, 1000)
 end
@@ -50,7 +50,7 @@ function eiInterop.rescaleEiIndicator()
 		if config.eiInteropEnabled and config.crosshairColorEnabled then
 			eiInterop.ei.deregisterScaleOverride(eiInterop.ei.scaleTypeEnum.DefaultIndicatorScale, SO_INTEROP_ID)
 			local soUiScale = config.crosshairScale
-			local scaleDifference = 4 -- Based on 128px sprite, whereas mw and essential indicator crosshair sprite is 32px
+			local scaleDifference = 4 -- Essential Indicators draws a 32px crosshair; ours is 128px
 			local eiScale = 100 * scaleDifference * soUiScale
 			eiInterop.ei.registerScaleOverride(eiInterop.ei.scaleTypeEnum.DefaultIndicatorScale, eiScale, SO_INTEROP_ID, 1000)
 		end

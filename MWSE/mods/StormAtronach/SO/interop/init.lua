@@ -20,24 +20,42 @@ interop.events = {
 	detected = "SA_SO_detected",
 }
 
---- Returns the current suspicion level (0.0-1.0) for the given actor reference ID.
-----@param actorId string
-----@return number
-interop.getSuspicion = detection.getSuspicion
+--- Returns the current suspicion level (0.0-1.0) for the given actor reference. 0 if untracked.
+---@param ref tes3reference
+---@return number
+function interop.getSuspicion(ref)
+	return detection.getSuspicion(ref)
+end
 
 --- Adds suspicion to an actor, capped at 1.0. Restarts the decay delay timer.
-----@param actorId string
-----@param amount number  0.0-1.0
-interop.addSuspicion = detection.addSuspicion
+---@param ref tes3reference
+---@param amount number  0.0-1.0
+function interop.addSuspicion(ref, amount)
+	detection.addSuspicion(ref, amount)
+end
 
 --- Clears all suspicion and tracking state for an actor immediately.
-----@param actorId string
-interop.clearSuspicion = detection.clearSuspicion
+---@param ref tes3reference
+function interop.clearSuspicion(ref)
+	detection.clearSuspicion(ref)
+end
+
+--- True if the actor fully detects the player or is fighting them. This is the gate the mod
+--- uses for sneak strikes; prefer it over the engine's isPlayerDetected flag.
+---@param mobile tes3mobileActor
+---@return boolean
+function interop.isDetectedBy(mobile)
+	return detection.isDetectedBy(mobile)
+end
+
+--- Experimental NPC investigation (startTravel / startWander). nil unless
+--- config.experimentalInvestigation is on.
+interop.investigation = config.experimentalInvestigation and require("StormAtronach.SO.investigation") or nil
 
 
---- As Stealth Overhaul takes control over leveling, you need to use this function to train the sneak skill in any other way than what is already covered by this mod (already covered includes: Just sneaking around, stealing stuff while sneaking, pickpocketing, and executing sneak strikes)
---- @param amount number The amount of experience to level Sneak. Mimics the ordinary tes3.exceciseSkill() function in amount actually trained.
-function interop.exerciseSneak(amount) 
+--- Stealth Overhaul blocks every other Sneak skill gain. Other mods call this to train Sneak for anything the mod does not already reward (sneaking near actors, stealing while sneaking, pickpocketing, sneak strikes).
+--- @param amount number XP amount, as tes3.mobilePlayer:exerciseSkill would take it.
+function interop.exerciseSneak(amount)
 	experience.levelSneak(experience.Source.interop, amount)
 end
 

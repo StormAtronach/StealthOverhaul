@@ -3,28 +3,29 @@ local log = mwse.Logger.new({ moduleName = "util", level = config.logLevel })
 local util = {}
 local factionList = {}
 
--- Let us check if Crafting Framework is active
+-- Crafting Framework adds carryable containers (Ashfall backpacks and the like) that the inventory scan must include.
 local CF = tes3.isLuaModActive("CraftingFramework")
 local CraftingFramework = nil
 if CF then
 CraftingFramework = require("CraftingFramework")
 end
 
--- This function updates the faction list, which is used to determine if an item belongs to a faction or an NPC.
+-- Rebuild the set of faction ids. Used to tell faction owners from NPC owners.
 function util.updateFactionList()
 local factions = tes3.dataHandler.nonDynamicData.factions
 factionList = {}
 for _, faction in pairs(factions) do
-    factionList[faction.id] = true
+    -- Lowercased to match the owner ids the stolen-item scan looks up.
+    factionList[faction.id:lower()] = true
 end
 return factionList
 end
 
--- We reset the player data to blank
+-- Create a blank save data table.
 function util.resetData()
     tes3.player.data.SA_GTV = {}
     local data = tes3.player.data.SA_GTV
-    --- Grudge mechanic. Not yet implemented
+    -- Long-term per-owner memory. Not used by any mechanic yet.
     data.npcs                   = {}
         data.npcs.items             = {}
         data.npcs.value             = 0
@@ -33,7 +34,7 @@ function util.resetData()
         data.factions.items         = {}
         data.factions.value         = 0
         data.factions.lastTime      = 0
-    --- Current crime mechanic. Currently implemented
+    -- Stolen goods currently carried.
     data.currentCrime           = {}
         data.currentCrime.value     = 0
         data.currentCrime.size      = 0
@@ -44,7 +45,7 @@ function util.resetData()
     return data
 end
 
--- Return the data container for the mod or initialize it
+-- Return the save data table, creating it if missing.
 function util.getData()
     if tes3.player.data.SA_GTV then
         return tes3.player.data.SA_GTV
@@ -54,7 +55,7 @@ function util.getData()
     end
 end
 
--- Reset the current crime
+-- Clear the carried stolen goods record.
 function util.resetCurrentCrime()
     local data = util.getData()
     data.currentCrime           = {}
@@ -66,7 +67,7 @@ function util.resetCurrentCrime()
 end
 
 
--- Get the max size of an object, defined as the longest dimension
+-- Longest bounding-box dimension of an item.
 function util.getMaxSize(item)
     if not item.boundingBox then log:debug("Get Max Size: Item does not have a bounding box") return 0 end
     local bBox = item.boundingBox
@@ -81,10 +82,10 @@ end
 ---@field count number|nil
 ---@field value number|nil
 
--- Update thieving victims long term memory -- Currently not integrated into the gameplay loop
+-- Record a theft in the long-term per-owner memory. Not called by any mechanic yet.
 ---@param p updateDataParams
 function util.updateData(p)
-    local ownerID = p.ownerID -- The ownner id
+    local ownerID = p.ownerID
     if not ownerID then log:debug("No owner id given") return false end
     local itemID = p.itemID
     if not itemID then log:debug("No itemID id given") return false end
@@ -94,20 +95,19 @@ function util.updateData(p)
     local data = util.getData()
     local TS = tes3.getSimulationTimestamp()
 
-    -- Data handling nightmare ahead
-	if factionList[ownerID] then --Here is to hoping that factionList has not changed since the game was loaded.
-		-- If there is already a table created, great. If not, add an empty one
+	if factionList[ownerID:lower()] then -- factionList is rebuilt on load
+		-- Ensure the owner entry exists.
                 data.factions[ownerID] = data.factions[ownerID] or {}
-		-- Now, for the items themselves. If an item not already listed, then create a new subtable
+		-- Add the item or increase its count.
 		if not  data.factions[ownerID].items[itemID] then
 				data.factions[ownerID].items[itemID] = {value = value, size = size, count = count, timestamp = TS}
-		else -- and if it already exists, increase the count
+		else
 				data.factions[ownerID].items[itemID].count = (data.factions[ownerID].items[itemID].count or 0) + count
                 data.factions[ownerID].items[itemID].timestamp = TS
 		end
-		-- Now we increase the value registry
+		-- Running total of stolen value for this owner.
 				data.factions[ownerID].value = (data.factions[ownerID].value or 0) + value*count
-	else -- Same thing for the NPCs
+	else -- NPC owner
 				data.npcs[ownerID] = data.npcs[ownerID] or { items = {}, value = 0 }
 		if not  data.npcs[ownerID].items[itemID] then
 				data.npcs[ownerID].items[itemID] = {value = value, size = size, count = count, timestamp = TS}
@@ -119,9 +119,9 @@ function util.updateData(p)
 	end
 end
 
--- Let's check the inventory for stolen items
+-- Scan the player's inventory and total the stolen goods per owner.
 function util.checkInventoryForStolenItems()
-    -- Set up the auxiliary data structure
+    -- Result table.
     local   auxData = {}
             auxData.npcs        = {}
             auxData.factions    = {}
@@ -129,7 +129,7 @@ function util.checkInventoryForStolenItems()
             auxData.value       = 0
             auxData.items       = {}
 
-    -- Scan the player's inventory for stolen items. Let's check if we have ashfall backpacks in there as well
+    -- Include carryable containers when Crafting Framework is present.
     local inventory = {}
     if CF and CraftingFramework then
         inventory = CraftingFramework.CarryableContainer.getFullInventory(tes3.player)
@@ -146,13 +146,13 @@ function util.checkInventoryForStolenItems()
             local count     = stack.count or 1
             auxData.size    = auxData.size  + size*count
             auxData.value   = auxData.value + value*count
-            -- Adding items to the global list
+            -- Totals across all owners.
             if not auxData.items[item.id] then
                 auxData.items[item.id] = {value = value, size = size, count = count}
             else
                 auxData.items[item.id].count = auxData.items[item.id].count + count
             end
-            -- Adding items to the owners lists
+            -- Totals per owner.
             for _, owner in pairs(item.stolenList) do
                 local ownerId   = owner.id:lower()
                 local ownerName = (owner.name or owner.id):lower()
@@ -182,8 +182,8 @@ function util.checkInventoryForStolenItems()
 end
 --- Updates the current crime data in the player data
 function util.updateCurrentCrime()
-    -- Sweep gated off by default (perf); single chokepoint for every caller.
-    -- When off, clear any stale crime once (idempotent, so it doesn't re-run every frame).
+    -- All callers go through here. The scan is off by default because its cost grows with inventory size.
+    -- When off, clear stale data once.
     if not config.stolenItemsTracking then
         local data = util.getData()
         if data.currentCrime.value ~= 0 or data.currentCrime.size ~= 0 then
@@ -200,7 +200,7 @@ function util.updateCurrentCrime()
     data.currentCrime.factions  = table.deepcopy(auxData.factions)
 end
 
---- Remove items
+--- Remove the given items from the player, through Crafting Framework when present.
 ---@param items any
 function util.removeItems(items)
     for itemID, v in pairs(items) do
@@ -221,13 +221,11 @@ function util.removeItems(items)
     end
 end
 
----Give items back to the owner
+--- Move the given items from the player to the owner.
 ---@param npcRef tes3reference
 ---@param items any
 function util.giveItemsBack(npcRef,items)
-  -- We remove the items from the player
   util.removeItems(items)
-  -- We add them to the NPC
     for itemID, v in pairs(items) do
         tes3.addItem({
             reference = npcRef,
@@ -237,7 +235,7 @@ function util.giveItemsBack(npcRef,items)
     end
 end
 
----Removes ownership from the items
+--- Clear the stolen flag on the given items.
 ---@param items any
 function util.removeOwnership(items)
     for itemID, _ in pairs(items) do
@@ -245,10 +243,10 @@ function util.removeOwnership(items)
     end
 end
 
---- Owner detection stream
+--- An owner caught the player with their goods: offer to return them, pay, or fight.
 ---@param npcSafeHandle mwseSafeObjectHandle
 function util.gotCaughtOwner(npcSafeHandle)
-    util.updateCurrentCrime() -- Ensure current crime is updated
+    util.updateCurrentCrime() -- refresh the stolen goods record
     local data = util.getData()
     ---@type tes3reference|nil
     local npcRef = nil
@@ -260,7 +258,7 @@ function util.gotCaughtOwner(npcSafeHandle)
     end
     --local npcRef = tes3.getReference(npcID) ---@cast npcRef tes3reference
 
-    -- Obsesively nil checking everything to avoid crashes:
+    -- The reference may have unloaded while the message box was open.
     if not npcRef or not npcRef.object or not npcRef.object.name then
         log:debug("Invalid NPC reference")
         return
@@ -271,7 +269,8 @@ function util.gotCaughtOwner(npcSafeHandle)
         log:debug("No data for NPC %s", npcRef.object.name)
         return
     end
-    local bribeValue = math.round(npcItems.value * (1 + 50/tes3.mobilePlayer.mercantile.current),0)
+    local mercantile = math.max(tes3.mobilePlayer.mercantile.current, 1) -- drained skill must not divide by zero
+    local bribeValue = math.round(npcItems.value * (1 + 50/mercantile),0)
 
     local npcName = npcRef.object.name
 
@@ -297,8 +296,8 @@ function util.gotCaughtOwner(npcSafeHandle)
             if e.button == 0 then
                 -- Player chose to give items back
                 util.giveItemsBack(npcRef,npcItems.items)
-                tes3.updateInventoryGUI({reference = tes3.player}) -- Update the inventory GUI to reflect changes
-                util.updateCurrentCrime() -- Update the current crime after giving items back
+                tes3.updateInventoryGUI({reference = tes3.player})
+                util.updateCurrentCrime()
                 tes3.messageBox("You returned the stolen items to %s. They seem displeased", npcName)
                 npcRef.object.baseDisposition = math.max(npcRef.object.baseDisposition - config.dispositionDropOnDiscovery, 0)
             elseif e.button == 1 then
@@ -307,13 +306,13 @@ function util.gotCaughtOwner(npcSafeHandle)
                     tes3.payMerchant{merchant = npcRef.mobile --[[@as tes3mobileNPC]], cost = bribeValue}
                     tes3.playSound{reference = tes3.player, sound = "Item Gold Down"}
                     util.removeOwnership(npcItems.items)
-                    util.updateCurrentCrime() -- Update the current crime
+                    util.updateCurrentCrime()
                     tes3.messageBox("Wealth beyond measure, Outlander. Next time, choose a merchant.")
                 else
-                -- Not enough gold, player chose to give items back
+                -- Not enough gold: return the items instead.
                 util.giveItemsBack(npcRef,npcItems.items)
-                tes3.updateInventoryGUI({reference = tes3.player}) -- Update the inventory GUI to reflect changes
-                util.updateCurrentCrime() -- Update the current crime after giving items back
+                tes3.updateInventoryGUI({reference = tes3.player})
+                util.updateCurrentCrime()
                 tes3.messageBox("You don't have enough gold and returned the stolen items to %s. They seem very displeased", npcName)
                 npcRef.object.baseDisposition = math.max(npcRef.object.baseDisposition - config.dispositionDropOnDiscovery*1.25, 0)
                 end
@@ -332,10 +331,10 @@ function util.gotCaughtOwner(npcSafeHandle)
         end,})
 end
 
---- Guard detection stream
+--- A guard caught the player with stolen goods: surrender, bluff, invite a search, or talk it down.
 ---@param npcSafeHandle mwseSafeObjectHandle
 function util.gotCaughtGuard(npcSafeHandle)
-    util.updateCurrentCrime() -- Ensure current crime is updated
+    util.updateCurrentCrime() -- refresh the stolen goods record
     local data = util.getData()
     local npcRef = nil
     if npcSafeHandle:valid() then
@@ -345,7 +344,7 @@ function util.gotCaughtGuard(npcSafeHandle)
         log:debug("Reference was not valid when it got to gotCaughtGuard")
         return
     end
-    -- Obsesively nil checking everything to avoid crashes:
+    -- The reference may have unloaded while the message box was open.
     if (not npcRef) or (not npcRef.object) or not (npcRef.mobile) then
         log:debug("Invalid NPC reference in gotCaughtGuard")
         return
@@ -354,7 +353,7 @@ function util.gotCaughtGuard(npcSafeHandle)
     local stolenItems = data.currentCrime.items
     local value       = data.currentCrime.value
 
-    -- Is it an ordinator?
+    -- Ordinators get their own lines.
     local helmet = tes3.getEquippedItem({
         actor = npcRef,
         slot = tes3.armorSlot.helmet,
@@ -421,7 +420,7 @@ function util.gotCaughtGuard(npcSafeHandle)
         showInDialog = false,
         callback = function (e)
             if e.button == 0 then
-                -- Player chose to surrender. Start vanilla dialogue
+                -- Surrender: hand over to the vanilla crime dialogue.
                 tes3.triggerCrime({
                     type = tes3.crimeType.theft,
                     value = value or 0,
@@ -434,7 +433,7 @@ function util.gotCaughtGuard(npcSafeHandle)
                 if check then
                     tes3.messageBox("A thousand pardons, Outlander")
                     util.removeOwnership(stolenItems)
-                    util.updateCurrentCrime() -- Update the current crime
+                    util.updateCurrentCrime()
                 else
                     tes3.messageBox("Why should I care?")
                     tes3.triggerCrime({
@@ -462,14 +461,14 @@ function util.gotCaughtGuard(npcSafeHandle)
                     end
                 })
             elseif e.button == 2 then
-                -- This one is tricky
+                -- Search: Sneak and Security against a roll.
                 local sneakTerm = tes3.mobilePlayer.sneak.current
                 local securityTerm = tes3.mobilePlayer.security.current
                 local check = (0.5*sneakTerm + 0.5* securityTerm) > math.random(5,150)
                 if check then
                     tes3.messageBox("Hmpf... Seems like I was mistaken")
                     util.removeOwnership(stolenItems)
-                    util.updateCurrentCrime() -- Update the current crime
+                    util.updateCurrentCrime()
                 else
                     tes3.triggerCrime({
                     type = tes3.crimeType.theft,
@@ -485,7 +484,7 @@ function util.gotCaughtGuard(npcSafeHandle)
                  if check then
                     tes3.messageBox("Very well... I think I can let this slide for now")
                     util.removeOwnership(stolenItems)
-                    util.updateCurrentCrime() -- Update the current crime
+                    util.updateCurrentCrime()
                 else
                     tes3.triggerCrime({
                     type = tes3.crimeType.theft,
@@ -493,7 +492,7 @@ function util.gotCaughtGuard(npcSafeHandle)
                     forceDetection = true,
                 })
                     tes3.messageBox("Caught red handed, thief!")
-                --[[ This code did not work as expected. Letting vanilla take over
+                --[[ Starting dialogue here did not work; vanilla handles the arrest.
                 local npcRefSH = tes3.makeSafeObjectHandle(npcRef)
                 timer.delayOneFrame(function() if npcRefSH:valid() then
                     local npcRef2 = npcRefSH:getObject()
@@ -509,59 +508,11 @@ function util.gotCaughtGuard(npcSafeHandle)
         end,})
 end
 
-
+-- Debug line drawers live in their own module; only loaded when the flag is on.
 if config.debugLines then
-    util.createLineRed = function(origin, destination, widget_name)
-        widget_name = widget_name or "raytest_debug_widget_red"
-        local root = tes3.worldController.vfxManager.worldVFXRoot
-        local line = root:getObjectByName(widget_name)
-
-        if line == nil then
-            ---@diagnostic disable-next-line: cast-local-type
-            line = tes3.loadMesh("mwse\\widgets.nif")  ---@cast line niTriShape
-                :getObjectByName("axisLines")
-                :getObjectByName("z")
-                :clone()
-            line.name = widget_name
-            root:attachChild(line, true)
-        end
-        ---@cast line niTriShape
-        line.data.vertices[1] = origin
-        line.data.vertices[2] = destination
-        line.data.colors[1] = niPackedColor.new(255, 0, 0)
-        line.data.colors[2] = niPackedColor.new(255, 0, 0)
-        line.data:markAsChanged()
-        line.data:updateModelBound()
-        line:update()
-        line:updateEffects()
-        line:updateProperties()
-    end
-
-    util.createLineGreen = function(origin, destination, widget_name)
-        widget_name = widget_name or "raytest_debug_widget_green"
-        local root = tes3.worldController.vfxManager.worldVFXRoot
-        local line = root:getObjectByName(widget_name) ---@cast line niTriShape
-
-        if line == nil then
-            ---@diagnostic disable-next-line: cast-local-type
-            line = tes3.loadMesh("mwse\\widgets.nif") ---@cast line niTriShape
-                :getObjectByName("axisLines")
-                :getObjectByName("z")
-                :clone()
-            line.name = widget_name
-            root:attachChild(line, true)
-        end
-        ---@cast line niTriShape
-        line.data.vertices[1] = origin
-        line.data.vertices[2] = destination
-        line.data.colors[1] = niPackedColor.new(0, 255, 0)
-        line.data.colors[2] = niPackedColor.new(0, 255, 0)
-        line.data:markAsChanged()
-        line.data:updateModelBound()
-        line:update()
-        line:updateEffects()
-        line:updateProperties()
-    end
+    local debugLines = require("StormAtronach.SO.debuglines")
+    util.createLineRed = debugLines.createLineRed
+    util.createLineGreen = debugLines.createLineGreen
 end
 
 return util

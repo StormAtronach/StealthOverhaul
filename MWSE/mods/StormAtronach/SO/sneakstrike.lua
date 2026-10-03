@@ -6,6 +6,10 @@ local log = mwse.Logger.new({
 local detection = require("StormAtronach.SO.detection")
 local experience = require("StormAtronach.SO.experience")
 
+-- MobileActorFlags_IsCrittable: the engine sets this on a victim that did not detect the
+-- attacker, right before it rolls the hit and applies its own sneak multiplier.
+local FLAG_IS_CRITTABLE = 0x8000000
+
 --- Linearly interpolate the sneak-skill damage multiplier.
 local skillBreakpoints = {0, 25, 50, 75, 100}
 local skillBreakpointKeys = {
@@ -53,7 +57,7 @@ local weaponTypeKeys = {
     [tes3.weaponType.marksmanThrown] = "marksmanThrown"
 }
 
---- Ranged weapons receive a 1.5x vanilla sneak multiplier; melee receives 4x.
+--- Ranged weapons are resolved on projectile impact, not on the swing (see onDamage).
 local rangedWeaponKeys = {
     marksmanBow = true,
     marksmanCrossbow = true,
@@ -77,22 +81,69 @@ local weaponSkillStats = {
     marksmanThrown = "marksman"
 }
 
--- Message queued in attackHit, shown in damaged (after other mods have applied their modifiers).
-local pendingSneakMessage = nil
-local pendingSneakTarget = nil ---@type tes3reference|nil
+-- Message queued on the strike, shown in damaged (after other mods have applied their modifiers).
+-- Melee strikes are matched by target; ranged strikes also by the projectile that queued them,
+-- so an unrelated hit during the arrow's flight cannot consume the message.
+---@type { message: string, target: tes3reference, projectile: tes3mobileProjectile|nil }|nil
+local pendingSneak = nil
+
+--- The configured per-weapon multiplier, before skill scaling. Exactly 1.0 means "non-lethal".
+---@param weaponTypeKey string
+---@return number
+local function getWeaponMultiplier(weaponTypeKey)
+    return (config.sneakStrikeMult and config.sneakStrikeMult[weaponTypeKey]) or 1.0
+end
+
+--- Final damage multiplier: per-weapon value times the sneak-skill factor, never below 1.0 so
+--- a sneak attack is never weaker than an ordinary hit (low skill means no bonus, not a penalty).
+---@param weaponTypeKey string
+---@return number
+local function getStrikeMultiplier(weaponTypeKey)
+    local multiplier = getWeaponMultiplier(weaponTypeKey)
+    if config.sneakSkillMultEnabled then
+        local sneakSkill = tes3.mobilePlayer.sneak and
+                               tes3.mobilePlayer.sneak.current or 0
+        multiplier = multiplier * getSkillMultiplier(sneakSkill)
+    end
+    return math.max(multiplier, 1.0)
+end
+
+--- Mark the victim as aware of the player, in both the mod's model and the engine flags.
+---@param targetMobile tes3mobileActor
+---@param targetReference tes3reference
+local function markDiscovered(targetMobile, targetReference)
+    detection.addSuspicion(targetReference, 1)
+    targetMobile.isPlayerDetected = true
+    targetMobile.isPlayerHidden = false
+end
+
+---@param multiplier number
+---@param targetReference tes3reference
+---@param projectile tes3mobileProjectile|nil
+local function queueSneakMessage(multiplier, targetReference, projectile)
+    if config.showSneakStrikeMessage then
+        pendingSneak = {
+            message = string.format("Sneak attack! x%.2f damage", multiplier),
+            target = targetReference,
+            projectile = projectile,
+        }
+    end
+end
 
 --- Set hit chance to 100 on a sneak strike.
 ---@param e calcHitChanceEventData
 local function sneakAttack(e)
     if not config.modEnabled or not config.sneakStrikeEnabled then return end
     if e.attacker == tes3.player and e.targetMobile then
-        if tes3.mobilePlayer.isSneaking and not e.targetMobile.isPlayerDetected then
+        if tes3.mobilePlayer.isSneaking and not detection.isDetectedBy(e.targetMobile) then
             e.hitChance = 100
         end
     end
 end
 event.register("calcHitChance", sneakAttack, {priority = 1000})
 
+--- Melee sneak strikes. attackHit fires before the engine resolves the strike, so the
+--- multiplier written to physicalDamage here is what the engine applies.
 ---@param e attackHitEventData
 local function attackHitCallback(e)
     if not config.modEnabled or not config.sneakStrikeEnabled then return end
@@ -101,10 +152,6 @@ local function attackHitCallback(e)
     if (not e.targetMobile) or (not e.targetReference) then return end
     if not (e.targetMobile.actorType == tes3.actorType.creature or
         e.targetMobile.actorType == tes3.actorType.npc) then return end
-    if e.targetMobile.isPlayerDetected then return end
-
-    detection.addSuspicion(e.targetReference, 1)
-    e.targetMobile.isPlayerDetected = true
 
     -- Determine weapon type key
     local weaponTypeKey
@@ -116,14 +163,18 @@ local function attackHitCallback(e)
     end
     if not weaponTypeKey then return end
 
-    local multiplier = (config.sneakStrikeMult and
-                           config.sneakStrikeMult[weaponTypeKey]) or 1.0
-    if config.sneakSkillMultEnabled then
-        local sneakSkill = tes3.mobilePlayer.sneak and
-                               tes3.mobilePlayer.sneak.current or 0
-        multiplier = multiplier * getSkillMultiplier(sneakSkill)
-    end
-    local isNonLethal = multiplier == 1.0
+    -- A bow release still runs the engine's melee hit detection, so targetMobile is set
+    -- whenever an actor stands within reach. Projectile damage never reads physicalDamage;
+    -- ranged strikes are handled on impact in onDamage.
+    if rangedWeaponKeys[weaponTypeKey] then return end
+
+    if detection.isDetectedBy(e.targetMobile) then return end
+
+    markDiscovered(e.targetMobile, e.targetReference)
+
+    -- Knockout is decided by the configured weapon value, not the skill-scaled result.
+    local isNonLethal = getWeaponMultiplier(weaponTypeKey) == 1.0
+    local multiplier = isNonLethal and 1.0 or getStrikeMultiplier(weaponTypeKey)
 
     -- Vanilla crit is suppressed (target marked detected above), so apply our multiplier directly.
     local baseDamage = e.mobile.actionData.physicalDamage
@@ -171,26 +222,57 @@ local function attackHitCallback(e)
             end)
         end
     else
-        if config.showSneakStrikeMessage then
-            pendingSneakMessage = string.format("Sneak attack! x%.1f damage",
-                                                multiplier)
-            pendingSneakTarget = e.targetReference
-        end
+        queueSneakMessage(multiplier, e.targetReference)
     end
 end
 event.register(tes3.event.attackHit, attackHitCallback)
 
---- Delaying the message here in case another mod intercepted it
+--- Ranged sneak strikes. The engine decides a projectile crit on impact by asking the victim
+--- whether it detects the player (which routes through our detectSneak override), then
+--- multiplies by fCombatKODamageMult. When that happened the IsCrittable flag is still set
+--- here, so we swap vanilla's multiplier for the configured one.
+---@param e damageEventData
+local function onDamage(e)
+    if not config.modEnabled or not config.sneakStrikeEnabled then return end
+    if not e.projectile or e.attacker ~= tes3.mobilePlayer then return end
+    if not e.mobile or not e.reference then return end
+    if not tes3.mobilePlayer.isSneaking then return end
+    -- `bit` is LuaJIT's bit library, available in MWSE but absent from the type definitions.
+    ---@diagnostic disable-next-line: undefined-global
+    if bit.band(e.mobile.flags, FLAG_IS_CRITTABLE) == 0 then return end
+
+    local projectile = e.projectile --[[@as tes3mobileProjectile]]
+    local weapon = projectile.firingWeapon
+    local weaponTypeKey = weapon and weaponTypeKeys[weapon.type]
+    if not weaponTypeKey or not rangedWeaponKeys[weaponTypeKey] then return end
+
+    local koMult = tes3.findGMST(tes3.gmst.fCombatKODamageMult)
+    local vanillaMult = (koMult and tonumber(koMult.value)) or 1.5
+    local multiplier = getStrikeMultiplier(weaponTypeKey)
+
+    local baseDamage = e.damage / vanillaMult
+    e.damage = baseDamage * multiplier
+
+    markDiscovered(e.mobile, e.reference)
+    queueSneakMessage(multiplier, e.reference, projectile)
+
+    log:debug(
+        "Ranged sneak attack [%s]: baseDamage=%.1f vanilla=x%.2f mult=x%.2f newDamage=%.1f",
+        weaponTypeKey, baseDamage, vanillaMult, multiplier, e.damage)
+end
+event.register(tes3.event.damage, onDamage)
+
+--- Show the queued message once the damage is final, after other mods' damage handlers.
 ---@param e damagedEventData
 local function damagedCallback(e)
-    if not pendingSneakMessage then return end
-    local msg = pendingSneakMessage
-    local target = pendingSneakTarget
-    pendingSneakMessage = nil
-    pendingSneakTarget = nil
-    if e.attacker == tes3.mobilePlayer and e.reference == target and e.damage >=
+    if not pendingSneak then return end
+    local pending = pendingSneak
+    -- A ranged strike waits for its own projectile to land; anything else is not ours.
+    if pending.projectile and e.projectile ~= pending.projectile then return end
+    pendingSneak = nil
+    if e.attacker == tes3.mobilePlayer and e.reference == pending.target and e.damage >=
         1 then
-        tes3.messageBox(msg)
+        tes3.messageBox(pending.message)
         log:debug("%s damage was %s", e.reference.id, e.damage)
         experience.levelSneak(experience.Source.sneakStrike, 0)
     end
