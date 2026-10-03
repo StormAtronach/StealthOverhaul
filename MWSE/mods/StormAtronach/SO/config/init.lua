@@ -107,7 +107,7 @@ if type(config.sneakSkillMult) ~= "table" then
 	config.sneakSkillMult = default.sneakSkillMult
 end
 
-config.version = "2.0.0"
+config.version = "2.3.0"
 config.default = default
 config.fileName = fileName
 

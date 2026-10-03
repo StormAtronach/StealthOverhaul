@@ -1,6 +1,6 @@
 [package]
 name = "Stealth Overhaul"
-version = "2.0.0"
+version = "2.3.0"
 authors = ["Storm Atronach"]
 homepage = "https://next.nexusmods.com/profile/StormAtronach0"
 description = "Suspicion that builds over time instead of a single sneak roll, sneak strikes tuned per weapon class, and a crosshair that shows who is about to notice you."
